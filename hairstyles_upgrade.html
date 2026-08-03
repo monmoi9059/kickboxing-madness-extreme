@@ -253,7 +253,7 @@
             power: 10,
             defense: 5,
             stamina: 100, maxStamina: 100, staminaRegen: 15, speedBonus: 0,
-            neckGirth: 0, deltoidSize: 0, forearmSize: 0, thighSize: 0, calfSize: 0,
+            neckGirth: 0, deltoidSize: 0, forearmSize: 0, thighSize: 0, calfSize: 0, chinSize: 0,
             money: 0, rank: 0,
             appearance: { h: 1.0, w: 1.0, skin: '#e2e8f0', shorts: '#3b82f6', gloves: '#ef4444', hairstyle: 'short', haircolor: '#000000' }
         };
@@ -270,10 +270,11 @@
             deltoidSize: { base: 55, mult: 1.5, name: "Deltoid Size (+Power)", val: 2 },
             forearmSize: { base: 45, mult: 1.4, name: "Forearm Size (+Defense)", val: 1 },
             thighSize: { base: 45, mult: 1.3, name: "Thigh Size (+Max Stamina)", val: 10 },
-            calfSize: { base: 65, mult: 1.5, name: "Calf Size (+Speed)", val: 0.3 }
+            calfSize: { base: 65, mult: 1.5, name: "Calf Size (+Speed)", val: 0.3 },
+            chinSize: { base: 80, mult: 1.6, name: "Chad Chin (+HP, +Def)", val: 5 }
         };
 
-        let upgradeLevels = { maxHp: 0, power: 0, defense: 0, maxStamina: 0, staminaRegen: 0, speedBonus: 0, botchedSurgery: 0, neckGirth: 0, deltoidSize: 0, forearmSize: 0, thighSize: 0, calfSize: 0 };
+        let upgradeLevels = { maxHp: 0, power: 0, defense: 0, maxStamina: 0, staminaRegen: 0, speedBonus: 0, botchedSurgery: 0, neckGirth: 0, deltoidSize: 0, forearmSize: 0, thighSize: 0, calfSize: 0, chinSize: 0 };
 
         const opponents = [
             { name: "Glass Joe", desc: "A weak local amateur.", stats: { maxHp: 80, power: 5, defense: 2, maxStamina: 80, staminaRegen: 10, appearance: { h: 0.85, w: 0.8, skin: '#fcd34d', shorts: '#ef4444', gloves: '#3b82f6', hairstyle: 'short', haircolor: '#fbbf24' } }, reward: 100 },
@@ -932,6 +933,28 @@
                 // Make the head slightly oval to better represent a side profile
                 ctx.ellipse(t.head.x, t.head.y, headRadius*0.95, headRadius*1.1, 0, 0, Math.PI*2);
                 ctx.fill(); ctx.stroke();
+
+                // Mega Chad Chin
+                let chinLevel = this.stats.chinSize || 0;
+                if (chinLevel > 0) {
+                    ctx.fillStyle = skin;
+                    ctx.strokeStyle = outline;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    // Extend chin forward and down
+                    let chinW = headRadius * 0.5 + (chinLevel * 3 * w);
+                    let chinH = headRadius * 0.3 + (chinLevel * 2 * h);
+
+                    let startX = t.head.x + (f * headRadius * 0.3);
+                    let startY = t.head.y + headRadius * 0.5;
+
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(startX + (f * chinW), startY);
+                    ctx.lineTo(startX + (f * chinW * 0.9), startY + chinH);
+                    ctx.lineTo(t.head.x, startY + chinH * 0.8);
+                    ctx.closePath();
+                    ctx.fill(); ctx.stroke();
+                }
 
                 // Eye (to establish side profile)
                 ctx.fillStyle = 'rgba(0,0,0,0.8)';
