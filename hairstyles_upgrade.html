@@ -662,6 +662,22 @@
                     targetT.bKnee = {x: 20*f, y: 85};
                 }
 
+                // Dynamically extend attack visuals based on limbMod so it matches hitbox reach and prevents bunching
+                if (isAttack && this.limbMod > 0) {
+                    let ext = this.limbMod;
+
+                    // Hands/feet go further out
+                    if (this.state === 'jab' || this.state === 'body_jab') targetT.fHand.x += ext * f;
+                    if (this.state === 'cross' || this.state === 'body_cross') targetT.bHand.x += ext * f;
+                    if (this.state === 'low_kick' || this.state === 'high_kick' || this.state === 'flying_kick') {
+                        targetT.bFoot.x += ext * f;
+                        targetT.pelvis.y -= ext * 0.3; // Lift torso to allow for longer leg without scrunching
+                        targetT.head.y -= ext * 0.3;
+                    }
+                    if (this.state === 'superman_punch') targetT.bHand.x += ext * f;
+                    if (this.state === 'flying_knee') targetT.fFoot.x += ext * f;
+                }
+
                 // Blend Attack Extension smoothly
                 if (isAttack) {
                     for (let joint in targetT) {
@@ -1387,11 +1403,7 @@ ctx.restore();
                     document.getElementById('result-title').className = "text-5xl font-black mb-4 text-green-500";
                     document.getElementById('result-money').textContent = opp.reward;
                     
-                    if (playerStats.rank >= opponents.length) {
-                        document.getElementById('goat-screen').classList.remove('hidden');
-                    } else {
-                        document.getElementById('result-screen').classList.remove('hidden');
-                    }
+                    document.getElementById('result-screen').classList.remove('hidden');
                 } else {
                     const opp = currentOpponentChoices[selectedOpponentIndex];
                     const loserBonus = Math.floor(opp.reward * 0.25); // Give 25% of reward for losing
@@ -1460,21 +1472,23 @@ ctx.restore();
         function updateGymUI() {
             document.getElementById('player-money').textContent = playerStats.money;
             
-            if (playerStats.rank < opponents.length) {
+            if (true) {
                 if (currentOpponentChoices.length === 0) {
-                    let baseOpp = opponents[playerStats.rank];
+                    let baseIndex = playerStats.rank % opponents.length;
+                    let cycleMulti = 1 + Math.floor(playerStats.rank / opponents.length) * 0.5;
+                    let baseOpp = opponents[baseIndex];
                     const numChoices = Math.floor(Math.random() * 3) + 3; // 3 to 5
                     for (let i = 0; i < numChoices; i++) {
                         const diff = 0.7 + (Math.random() * 0.6);
                         let newOpp = JSON.parse(JSON.stringify(baseOpp));
                         const diffName = diff < 0.9 ? "Weak " : (diff > 1.1 ? "Elite " : "");
-                        newOpp.name = `${diffName}${newOpp.name}`;
-                        newOpp.stats.maxHp = Math.floor(newOpp.stats.maxHp * diff);
-                        newOpp.stats.power = Math.floor(newOpp.stats.power * diff);
-                        newOpp.stats.defense = Math.floor(newOpp.stats.defense * diff);
-                        newOpp.stats.maxStamina = Math.floor(newOpp.stats.maxStamina * diff);
-                        newOpp.stats.staminaRegen = Math.floor(newOpp.stats.staminaRegen * diff);
-                        newOpp.reward = Math.floor(newOpp.reward * diff);
+                        newOpp.name = `${diffName}${newOpp.name} ${playerStats.rank >= opponents.length ? "V" + (Math.floor(playerStats.rank / opponents.length) + 1) : ""}`.trim();
+                        newOpp.stats.maxHp = Math.floor(newOpp.stats.maxHp * diff * cycleMulti);
+                        newOpp.stats.power = Math.floor(newOpp.stats.power * diff * cycleMulti);
+                        newOpp.stats.defense = Math.floor(newOpp.stats.defense * diff * cycleMulti);
+                        newOpp.stats.maxStamina = Math.floor(newOpp.stats.maxStamina * diff * cycleMulti);
+                        newOpp.stats.staminaRegen = Math.floor(newOpp.stats.staminaRegen * diff * (1 + (cycleMulti-1)*0.1));
+                        newOpp.reward = Math.floor(newOpp.reward * diff * cycleMulti);
                         newOpp.difficultyMult = diff;
                         currentOpponentChoices.push(newOpp);
                     }
