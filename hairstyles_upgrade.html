@@ -1523,8 +1523,9 @@ ctx.restore();
                         upgradeLevels[key]++;
 
                         if (key === 'botchedSurgery') {
-                            // Increases limb length drastically, reduces stamina
+                            // Increases limb length drastically, reduces stamina, increases height
                             playerStats.appearance.limbLengthMod = (playerStats.appearance.limbLengthMod || 0) + 20;
+                            playerStats.appearance.h = (playerStats.appearance.h || 1) + 0.05; // Make player taller
                             playerStats.maxStamina = Math.max(10, playerStats.maxStamina - 20); // Penalty
                             if (playerStats.stamina > playerStats.maxStamina) playerStats.stamina = playerStats.maxStamina;
                         } else {
