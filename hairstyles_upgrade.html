@@ -253,6 +253,7 @@
             power: 10,
             defense: 5,
             stamina: 100, maxStamina: 100, staminaRegen: 15, speedBonus: 0,
+            neckGirth: 0, deltoidSize: 0, forearmSize: 0, thighSize: 0, calfSize: 0, chinSize: 0,
             money: 0, rank: 0,
             appearance: { h: 1.0, w: 1.0, skin: '#e2e8f0', shorts: '#3b82f6', gloves: '#ef4444', hairstyle: 'short', haircolor: '#000000' }
         };
@@ -264,10 +265,16 @@
             maxStamina: { base: 40, mult: 1.3, name: "Max Stamina (Abs)", val: 15 },
             staminaRegen: { base: 50, mult: 1.5, name: "Cardio", val: 3 },
             speedBonus: { base: 75, mult: 1.6, name: "Movement Speed (Leg Muscles)", val: 0.5 },
-            botchedSurgery: { base: 200, mult: 2.0, name: "Botched Limb Lengthening (-Stamina)", val: 1 }
+            botchedSurgery: { base: 200, mult: 2.0, name: "Botched Limb Lengthening (-Stamina)", val: 1 },
+            neckGirth: { base: 45, mult: 1.4, name: "Neck Girth (+Max HP)", val: 10 },
+            deltoidSize: { base: 55, mult: 1.5, name: "Deltoid Size (+Power)", val: 2 },
+            forearmSize: { base: 45, mult: 1.4, name: "Forearm Size (+Defense)", val: 1 },
+            thighSize: { base: 45, mult: 1.3, name: "Thigh Size (+Max Stamina)", val: 10 },
+            calfSize: { base: 65, mult: 1.5, name: "Calf Size (+Speed)", val: 0.3 },
+            chinSize: { base: 80, mult: 1.6, name: "Chad Chin (+HP, +Def)", val: 5 }
         };
 
-        let upgradeLevels = { maxHp: 0, power: 0, defense: 0, maxStamina: 0, staminaRegen: 0, speedBonus: 0, botchedSurgery: 0 };
+        let upgradeLevels = { maxHp: 0, power: 0, defense: 0, maxStamina: 0, staminaRegen: 0, speedBonus: 0, botchedSurgery: 0, neckGirth: 0, deltoidSize: 0, forearmSize: 0, thighSize: 0, calfSize: 0, chinSize: 0 };
 
         const opponents = [
             { name: "Glass Joe", desc: "A weak local amateur.", stats: { maxHp: 80, power: 5, defense: 2, maxStamina: 80, staminaRegen: 10, appearance: { h: 0.85, w: 0.8, skin: '#fcd34d', shorts: '#ef4444', gloves: '#3b82f6', hairstyle: 'short', haircolor: '#fbbf24' } }, reward: 100 },
@@ -300,6 +307,9 @@
             if (!previewFighter) {
                 previewFighter = new Fighter(150, 0, 1, playerStats, true);
                 previewFighter.state = 'idle';
+            } else {
+                // Completely re-sync stats so new widths calculate properly
+                previewFighter.stats = JSON.parse(JSON.stringify(playerStats));
             }
 
             // Sync stats
@@ -495,6 +505,14 @@
                 let trapsBase = 12;
                 let defBonus = Math.max(0, this.stats.defense - 5) * 1.5; // 2 def upgrade = +3 width
                 let trapsW = (trapsBase + defBonus) * w;
+
+                // Calculate new distinct muscle widths
+                let neckW = 10 * w + (this.stats.neckGirth || 0) * 0.5;
+                let deltoidW = 14 * w + (this.stats.deltoidSize || 0) * 1.2;
+                let forearmW = 8 * w + (this.stats.forearmSize || 0) * 1.5;
+                let thighW = 22 * w + (this.stats.thighSize || 0) * 0.4 + (this.stats.speedBonus || 0) * 3;
+                let calfW = 14 * w + (this.stats.calfSize || 0) * 1.2 + (this.stats.speedBonus || 0) * 2;
+                let jointW = 10 * w; // Base width for knees/elbows
 
                 // Abs show if maxStamina is upgraded at least once (base is 100, upgrade is +15)
                 let hasAbs = this.stats.maxStamina >= 115;
@@ -829,7 +847,7 @@
 
                 // Back Arm (Bicep mutated)
                 let bBend = f; // Bend backwards (elbows back)
-                drawDetailedLimb(t.neck, t.bHand, bBend, armLength, bicepW, outline, skin, true);
+                drawDetailedLimb(t.neck, t.bHand, bBend, armLength, bicepW, forearmW, jointW, deltoidW, outline, skin, true);
 
                 // Back Glove
                 ctx.fillStyle = gloves;
@@ -844,21 +862,32 @@
                 ctx.fill(); ctx.stroke();
                 
                 // Back Leg
-                drawDetailedLimb(t.pelvis, t.bFoot, -f, legLength, 12, outline, skin);
+                drawDetailedLimb(t.pelvis, t.bFoot, -f, legLength, thighW, calfW, jointW, 0, outline, skin);
 
-                // Torso (Traps and Chest mutated)
-                let hipW = Math.max(20, chestW * 0.85); // Hips scale slightly with chest so you don't look like a dorito
+                // Torso and Neck
+                let hipW = Math.max(20, chestW * 0.85);
+
+                // Draw Neck
                 ctx.fillStyle = skin;
                 ctx.strokeStyle = outline;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.moveTo(t.neck.x - trapsW, t.neck.y); // Traps left
-                ctx.lineTo(t.neck.x + trapsW, t.neck.y); // Traps right
-                // Curve in slightly at the waist for a natural shape
+                // Neck connects t.neck to base of head
+                ctx.moveTo(t.neck.x - neckW/2, t.neck.y + 5*h);
+                ctx.lineTo(t.neck.x + neckW/2, t.neck.y + 5*h);
+                ctx.lineTo(t.head.x + neckW/2, t.head.y);
+                ctx.lineTo(t.head.x - neckW/2, t.head.y);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+
+                // Draw Torso
+                ctx.beginPath();
+                ctx.moveTo(t.neck.x - trapsW, t.neck.y);
+                ctx.lineTo(t.neck.x + trapsW, t.neck.y);
                 let midY = (t.neck.y + t.pelvis.y) / 2;
-                ctx.quadraticCurveTo(t.neck.x + trapsW*0.9, midY, t.pelvis.x + hipW/2, t.pelvis.y); // Right side
-                ctx.lineTo(t.pelvis.x - hipW/2, t.pelvis.y); // Bottom
-                ctx.quadraticCurveTo(t.neck.x - trapsW*0.9, midY, t.neck.x - trapsW, t.neck.y); // Left side
+                ctx.quadraticCurveTo(t.neck.x + trapsW*0.9, midY, t.pelvis.x + hipW/2, t.pelvis.y);
+                ctx.lineTo(t.pelvis.x - hipW/2, t.pelvis.y);
+                ctx.quadraticCurveTo(t.neck.x - trapsW*0.9, midY, t.neck.x - trapsW, t.neck.y);
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
 
@@ -907,6 +936,28 @@
                 // Make the head slightly oval to better represent a side profile
                 ctx.ellipse(t.head.x, t.head.y, headRadius*0.95, headRadius*1.1, 0, 0, Math.PI*2);
                 ctx.fill(); ctx.stroke();
+
+                // Mega Chad Chin
+                let chinLevel = this.stats.chinSize || 0;
+                if (chinLevel > 0) {
+                    ctx.fillStyle = skin;
+                    ctx.strokeStyle = outline;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    // Extend chin forward and down
+                    let chinW = headRadius * 0.5 + (chinLevel * 3 * w);
+                    let chinH = headRadius * 0.3 + (chinLevel * 2 * h);
+
+                    let startX = t.head.x + (f * headRadius * 0.3);
+                    let startY = t.head.y + headRadius * 0.5;
+
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(startX + (f * chinW), startY);
+                    ctx.lineTo(startX + (f * chinW * 0.9), startY + chinH);
+                    ctx.lineTo(t.head.x, startY + chinH * 0.8);
+                    ctx.closePath();
+                    ctx.fill(); ctx.stroke();
+                }
 
                 // Eye (to establish side profile)
                 ctx.fillStyle = 'rgba(0,0,0,0.8)';
@@ -1026,11 +1077,11 @@
                 }
 
                 // Front Leg
-                drawDetailedLimb(t.pelvis, t.fFoot, -f, legLength, 12, outline, skin);
+                drawDetailedLimb(t.pelvis, t.fFoot, -f, legLength, thighW, calfW, jointW, 0, outline, skin);
 
                 // Front Arm (Bicep mutated)
                 let fBend = f; // Bend backwards (elbows back)
-                drawDetailedLimb(t.neck, t.fHand, fBend, armLength, bicepW, outline, skin, true);
+                drawDetailedLimb(t.neck, t.fHand, fBend, armLength, bicepW, forearmW, jointW, deltoidW, outline, skin, true);
 
                 // Front Glove
                 ctx.fillStyle = gloves;
