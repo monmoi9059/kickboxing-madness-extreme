@@ -48,11 +48,11 @@
                     <div class="space-y-4">
 
                         <div>
-                            <label class="text-sm text-gray-400 flex justify-between">Height <span id="val-height" class="font-bold text-white">1.00x</span></label>
+                            <label class="text-sm text-gray-400 flex justify-between">Height <span id="val-height" class="font-bold text-white">6'0"</span></label>
                             <input type="range" id="custom-height" min="0.8" max="1.3" step="0.05" value="1" class="w-full cursor-pointer accent-blue-500">
                         </div>
                         <div>
-                            <label class="text-sm text-gray-400 flex justify-between">Weight <span id="val-weight" class="font-bold text-white">1.00x</span></label>
+                            <label class="text-sm text-gray-400 flex justify-between">Weight <span id="val-weight" class="font-bold text-white">180 lbs</span></label>
                             <input type="range" id="custom-weight" min="0.7" max="1.5" step="0.05" value="1" class="w-full cursor-pointer accent-blue-500">
                         </div>
                         <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
@@ -1373,17 +1373,34 @@ ctx.restore();
 
 
         // --- CUSTOMIZATION LISTENERS ---
+        function formatHeight(multiplier) {
+            let inches = Math.round(72 * multiplier); // Base 6'0"
+            let feet = Math.floor(inches / 12);
+            let remInches = inches % 12;
+            return `${feet}'${remInches}"`;
+        }
+
+        function formatWeight(multiplier) {
+            let lbs = Math.round(180 * multiplier); // Base 180 lbs
+            return `${lbs} lbs`;
+        }
+
         ['height', 'weight', 'skin', 'shorts', 'hairstyle', 'haircolor', 'facialhair', 'tattoos', 'glovetype'].forEach(key => {
             document.getElementById(`custom-${key}`).addEventListener('input', (e) => {
                 let val = e.target.value;
-                if (key === 'height' || key === 'weight') {
+                if (key === 'height') {
                     val = parseFloat(val);
-                    document.getElementById(`val-${key}`).textContent = val.toFixed(2) + 'x';
-                    playerStats.appearance[key === 'height' ? 'h' : 'w'] = val;
+                    document.getElementById(`val-${key}`).textContent = formatHeight(val);
+                    playerStats.appearance.h = val;
+                } else if (key === 'weight') {
+                    val = parseFloat(val);
+                    document.getElementById(`val-${key}`).textContent = formatWeight(val);
+                    playerStats.appearance.w = val;
                 } else {
                     playerStats.appearance[key] = val;
                 }
             });
+        });
         });
 
 
