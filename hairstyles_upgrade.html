@@ -66,6 +66,31 @@
                             </select>
                         </div>
                         <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
+                            <label class="text-sm text-gray-300 font-bold">Facial Hair</label>
+                            <select id="custom-facialhair" class="bg-gray-800 text-white text-sm rounded border border-gray-600 p-1 cursor-pointer">
+                                <option value="none">None</option>
+                                <option value="beard">Beard</option>
+                                <option value="mustache">Mustache</option>
+                                <option value="goatee">Goatee</option>
+                            </select>
+                        </div>
+                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
+                            <label class="text-sm text-gray-300 font-bold">Tattoos</label>
+                            <select id="custom-tattoos" class="bg-gray-800 text-white text-sm rounded border border-gray-600 p-1 cursor-pointer">
+                                <option value="none">None</option>
+                                <option value="tribal_band">Tribal Band</option>
+                                <option value="chest_piece">Chest Piece</option>
+                            </select>
+                        </div>
+                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
+                            <label class="text-sm text-gray-300 font-bold">Gloves</label>
+                            <select id="custom-glovetype" class="bg-gray-800 text-white text-sm rounded border border-gray-600 p-1 cursor-pointer">
+                                <option value="boxing">Boxing</option>
+                                <option value="mma">MMA</option>
+                            </select>
+                        </div>
+
+                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
                             <label class="text-sm text-gray-300 font-bold">Hair Color</label>
                             <input type="color" id="custom-haircolor" value="#000000" class="h-8 w-12 bg-transparent border-0 cursor-pointer rounded">
                         </div>
@@ -393,31 +418,46 @@
                 const f = this.facing; // Facing multiplier
 
                 // --- FLUID ANIMATION ENGINE ---
-                let bounce = Math.sin(this.animTime * 0.006) * 2;
+                // Enhance idle breathing
+                let breathe = Math.sin(this.animTime * 0.004);
+                let bounce = breathe * 2.5;
+                let chestExpand = breathe * 2;
                 
-                // 1. Base Idle Pose (with natural breathing bounce)
+                // 1. Base Idle Pose (with natural breathing bounce and active stance)
                 let baseT = {
-                    head: {x: 0, y: -70*h + bounce},
+                    head: {x: 5*f*w, y: -70*h + bounce},
                     neck: {x: 0, y: -50*h},
-                    pelvis: {x: 0, y: 10*h + bounce},
-                    fHand: {x: 20*f*w, y: -40*h + bounce},
-                    bHand: {x: -10*f*w, y: -30*h + bounce},
-                    fFoot: {x: 20*f*w, y: 90*h},
-                    bFoot: {x: -20*f*w, y: 90*h},
-                    fKnee: {x: 25*f*w, y: 50*h},
-                    bKnee: {x: -15*f*w, y: 50*h}
+                    pelvis: {x: -5*f*w, y: 10*h + bounce*1.2},
+                    fHand: {x: 25*f*w, y: -45*h + bounce*1.5},
+                    bHand: {x: 0, y: -35*h + bounce*1.5},
+                    fFoot: {x: 35*f*w, y: 90*h},
+                    bFoot: {x: -30*f*w, y: 90*h - 5}, // Back foot slightly raised on toes
+                    fKnee: {x: 30*f*w, y: 50*h + bounce}, // Added knees to allow elbows/knees to render correctly in idle
+                    bKnee: {x: -20*f*w, y: 45*h + bounce}
                 };
 
-                // 2. Add Walk Stride Offsets
+                // Add chest expansion for breathing (visual only through trap stretching)
+                trapsW += chestExpand;
+
+                // 2. Add Walk Stride Offsets (Footwork Shuffle)
                 if (this.state === 'walk') {
-                    let stride = Math.sin(this.animTime * 0.012) * 25;
-                    baseT.fFoot.x += stride * f;
-                    baseT.bFoot.x -= stride * f;
-                    baseT.fKnee.x += stride * 0.5 * f;
-                    baseT.bKnee.x -= stride * 0.5 * f;
-                    baseT.pelvis.y -= Math.abs(stride) * 0.3;
+                    let stride = Math.sin(this.animTime * 0.015) * 30; // Faster, slightly wider step
+                    let stepHeight = Math.abs(Math.cos(this.animTime * 0.015)) * 10;
+
+                    if (stride > 0) { // Front foot moving
+                        baseT.fFoot.x += stride * f;
+                        baseT.fFoot.y -= stepHeight;
+                    } else { // Back foot moving
+                        baseT.bFoot.x -= stride * f;
+                        baseT.bFoot.y -= stepHeight;
+                    }
+
+                    baseT.pelvis.y -= Math.abs(stride) * 0.2;
                     baseT.fHand.x += stride * 0.2 * f;
+                    baseT.fHand.y -= stepHeight * 0.5;
                     baseT.bHand.x -= stride * 0.2 * f;
+                    baseT.bHand.y -= stepHeight * 0.5;
+                    baseT.head.y -= stepHeight * 0.3;
                 }
 
                 // 3. Define Target Pose based on State
@@ -440,7 +480,6 @@
                         targetT.bHand = {x: 85*f*w, y: -60*h};
                         targetT.fHand = {x: -15*f*w, y: -65*h}; // Pull back guard
                         targetT.pelvis.x += 20*f; targetT.head.x += 20*f;
-                        targetT.bKnee.x += 15*f; targetT.fKnee.x -= 5*f; // Hip rotation
                     } else if (this.state === 'body_jab') {
                         targetT.pelvis.y += 30*h; targetT.head.y += 30*h;
                         targetT.fHand = {x: 65*f*w, y: -5*h};
@@ -452,26 +491,57 @@
                         targetT.pelvis.x += 20*f;
                     } else if (this.state === 'low_kick') {
                         targetT.bFoot = {x: 65*f*w, y: 65*h};
-                        targetT.bKnee = {x: 35*f*w, y: 45*h};
                         targetT.pelvis.x -= 15*f; targetT.head.x -= 20*f;
                         targetT.fHand.x -= 15*f; targetT.bHand.x += 25*f; // Arm swing for balance
                     } else if (this.state === 'high_kick') {
                         targetT.bFoot = {x: 65*f*w, y: -70*h};
-                        targetT.bKnee = {x: 35*f*w, y: -25*h};
                         targetT.pelvis.x -= 25*f; targetT.head.x -= 30*f; targetT.head.y += 10*h; // Lean back
                         targetT.fHand.x -= 20*f; targetT.bHand.x += 35*f;
+                    } else if (this.state === 'superman_punch') {
+                        // Launch forward, back leg kicks out behind, back hand strikes
+                        targetT.pelvis.y -= 30*h; targetT.head.y -= 25*h; targetT.head.x += 30*f;
+                        targetT.bHand = {x: 100*f*w, y: -55*h};
+                        targetT.fHand = {x: -20*f*w, y: -55*h};
+                        targetT.bFoot = {x: -60*f*w, y: -10*h}; // Kick back
+                        targetT.fFoot = {x: -10*f*w, y: 50*h}; // Tucked
+                    } else if (this.state === 'flying_knee') {
+                        // Leap, drive front knee up
+                        targetT.pelvis.y -= 40*h; targetT.head.y -= 35*h; targetT.head.x -= 10*f;
+                        targetT.bHand = {x: -10*f*w, y: -70*h}; targetT.fHand = {x: 30*f*w, y: -20*h}; // Guard up/down
+                        targetT.bFoot = {x: -20*f*w, y: 60*h};
+                        targetT.fFoot = {x: 50*f*w, y: 0}; // Knee forward
+                        // NOTE: Because we use drawDetailedLimb to calc knees, we just pull the foot up and forward
+                    } else if (this.state === 'flying_kick') {
+                        // Switch kick mid-air
+                        targetT.pelvis.y -= 30*h; targetT.pelvis.x += 20*f;
+                        targetT.head.y -= 20*h; targetT.head.x -= 20*f;
+                        targetT.fFoot = {x: -30*f*w, y: 40*h}; // Tuck front
+                        targetT.bFoot = {x: 100*f*w, y: -40*h}; // Extend back
+                        targetT.fHand.x -= 30*f; targetT.bHand.x += 40*f; // Arm swing
                     }
-                } else if (this.state === 'block') {
+                    } else if (this.state === 'block') {
                     targetT.fHand = {x: 15*f*w, y: -65*h};
                     targetT.bHand = {x: 0, y: -70*h};
                     targetT.head.x -= 12*f; targetT.head.y += 8*h;
                     targetT.pelvis.y += 8*h; // Crunch down tight
-                } else if (this.state === 'dodge') {
-                    targetT.pelvis.y += 35*h; targetT.head.y += 40*h;
-                    targetT.head.x -= 30*f*w; targetT.neck.x -= 25*f*w;
-                    targetT.fHand = { x: 5*f*w, y: -30*h };
-                    targetT.bHand = { x: 0, y: -40*h };
-                    targetT.fKnee.x += 20*f*w; targetT.bKnee.x -= 15*f*w;
+                } else if (this.state === 'low_block') {
+                    targetT.fHand = {x: 20*f*w, y: -20*h}; // Drop front hand to block body
+                    targetT.bHand = {x: 0, y: -60*h}; // Keep back hand up
+                    targetT.head.x -= 15*f; targetT.head.y += 20*h;
+                    targetT.pelvis.y += 30*h; // Squat down
+                    targetT.fFoot.x += 10*f*w; targetT.bFoot.x -= 10*f*w; // Widen stance
+                } else if (this.state === 'dodge' || this.state === 'duck') {
+                    targetT.pelvis.y += 45*h; targetT.head.y += 45*h; // Deep duck
+                    targetT.fHand = { x: 15*f*w, y: -30*h };
+                    targetT.bHand = { x: 5*f*w, y: -40*h };
+                    if (this.state === 'dodge') {
+                        // Directional dodge leans head away
+                        targetT.head.x -= 30*f*w; targetT.neck.x -= 25*f*w;
+                        targetT.fFoot.x += 20*f*w; targetT.bFoot.x -= 15*f*w;
+                    } else {
+                        // Just slip/duck
+                        targetT.head.x += 15*f*w; // Slip outside
+                    }
                 } else if (this.state === 'hit') {
                     let p = (300 - this.stateTimer) / 300; 
                     let hitIntensity = Math.pow(1 - p, 3); // Snaps back violently, recovers slowly
@@ -524,18 +594,111 @@
 
                 // --- RENDER ORDER (Back to Front) ---
                 
+                const fHair = app.facialhair || 'none';
+                const tattoo = app.tattoos || 'none';
+                const gType = app.glovetype || 'boxing';
+
+                // Helper for 2-part limb
+                const drawLimb = (p1, p2, width1, width2, color) => {
+                    ctx.beginPath();
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+
+                    // Simple hack: draw one capsule. A more advanced version would calculate the mid joint (elbow/knee)
+                    // For now, let's keep it simple or implement inverse kinematics if requested.
+                    // Given the current skeleton only has Hand, Neck, etc. we will stick to 1 segment, but add detail.
+                    ctx.lineWidth = width1;
+                    ctx.strokeStyle = color;
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.stroke();
+                };
+
+                const drawDetailedLimb = (startJoint, endJoint, bendDir, limbLength, width, outlineCol, fillCol, hasTattoo = false) => {
+                    // Calculate midpoint (elbow/knee)
+                    let dx = endJoint.x - startJoint.x;
+                    let dy = endJoint.y - startJoint.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+
+                    // If distance is too long, constrain it (prevent tearing)
+                    if (dist > limbLength) {
+                        dx = (dx / dist) * limbLength;
+                        dy = (dy / dist) * limbLength;
+                        dist = limbLength;
+                    }
+
+                    // Calculate elbow/knee joint using trigonometry
+                    // Assuming upper and lower limbs are equal length (limbLength / 2)
+                    let l = limbLength / 2;
+                    // Law of cosines to find angle
+                    let cosAngle = (dist*dist) / (2 * l * dist);
+                    if (cosAngle > 1) cosAngle = 1;
+                    let angle = Math.acos(cosAngle);
+
+                    let baseAngle = Math.atan2(dy, dx);
+                    let midAngle = baseAngle + (bendDir * angle);
+
+                    let midX = startJoint.x + Math.cos(midAngle) * l;
+                    let midY = startJoint.y + Math.sin(midAngle) * l;
+
+                    // Draw Outline
+                    ctx.beginPath();
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.lineWidth = width;
+                    ctx.strokeStyle = outlineCol;
+                    ctx.moveTo(startJoint.x, startJoint.y);
+                    ctx.lineTo(midX, midY);
+                    ctx.lineTo(endJoint.x, endJoint.y);
+                    ctx.stroke();
+
+                    // Draw Fill
+                    ctx.beginPath();
+                    ctx.lineWidth = width - 2;
+                    ctx.strokeStyle = fillCol;
+                    ctx.moveTo(startJoint.x, startJoint.y);
+                    ctx.lineTo(midX, midY);
+                    ctx.lineTo(endJoint.x, endJoint.y);
+                    ctx.stroke();
+
+                    // Tattoos on Upper Arm
+                    if (hasTattoo && tattoo !== 'none') {
+                        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+                        if (tattoo === 'tribal_band') {
+                            ctx.lineWidth = 3;
+                            let tX = startJoint.x + Math.cos(midAngle) * (l*0.4);
+                            let tY = startJoint.y + Math.sin(midAngle) * (l*0.4);
+                            let tX2 = startJoint.x + Math.cos(midAngle) * (l*0.5);
+                            let tY2 = startJoint.y + Math.sin(midAngle) * (l*0.5);
+                            ctx.beginPath();
+                            ctx.moveTo(tX, tY);
+                            ctx.lineTo(tX2, tY2);
+                            ctx.stroke();
+                        }
+                    }
+                };
+
+                const armLength = 75 * h;
+                const legLength = 80 * h;
+
                 // Back Arm (Bicep mutated)
-                drawCapsule(t.neck, t.bHand, bicepW, outline); // outline
-                drawCapsule(t.neck, t.bHand, bicepW - 2, skin); // fill
+                let bBend = this.state === 'dodge' ? f : -f; // Bend direction
+                drawDetailedLimb(t.neck, t.bHand, bBend, armLength, bicepW, outline, skin, true);
+
                 // Back Glove
                 ctx.fillStyle = gloves;
-                ctx.beginPath(); ctx.arc(t.bHand.x, t.bHand.y, 10, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = outline;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                if (gType === 'mma') {
+                    ctx.arc(t.bHand.x, t.bHand.y, 8, 0, Math.PI*2);
+                } else {
+                    ctx.arc(t.bHand.x, t.bHand.y, 12, 0, Math.PI*2); // Boxing
+                }
+                ctx.fill(); ctx.stroke();
                 
                 // Back Leg
-                drawCapsule(t.pelvis, t.bKnee, 12, outline);
-                drawCapsule(t.pelvis, t.bKnee, 10, skin);
-                drawCapsule(t.bKnee, t.bFoot, 10, outline);
-                drawCapsule(t.bKnee, t.bFoot, 8, skin);
+                drawDetailedLimb(t.pelvis, t.bFoot, f, legLength, 12, outline, skin);
 
                 // Torso (Traps and Chest mutated)
                 ctx.fillStyle = skin;
@@ -548,6 +711,18 @@
                 ctx.lineTo(t.pelvis.x - chestW/2, t.pelvis.y); // Hip left
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
+
+                // Chest Tattoo
+                if (tattoo === 'chest_piece') {
+                    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                    ctx.beginPath();
+                    ctx.moveTo(t.neck.x, t.neck.y + 10);
+                    ctx.lineTo(t.neck.x - trapsW*0.6, t.neck.y + 25);
+                    ctx.lineTo(t.neck.x, t.neck.y + 40);
+                    ctx.lineTo(t.neck.x + trapsW*0.6, t.neck.y + 25);
+                    ctx.closePath();
+                    ctx.fill();
+                }
 
                 // Six Pack (Stamina Mutation)
                 if (hasAbs && this.state !== 'ko') {
@@ -611,31 +786,61 @@
                     }
                 }
 
+                // Facial Hair
+                if (fHair !== 'none') {
+                    ctx.fillStyle = app.haircolor || '#000000';
+                    let faceX = t.head.x + (f * headRadius * 0.7); // Front of face
+                    let faceY = t.head.y;
+
+                    if (fHair === 'beard') {
+                        ctx.beginPath();
+                        ctx.arc(t.head.x, t.head.y, headRadius*1.1, 0, Math.PI); // Bottom half of face
+                        ctx.fill();
+                    } else if (fHair === 'mustache') {
+                        ctx.beginPath();
+                        ctx.ellipse(faceX, faceY + headRadius*0.2, headRadius*0.5, headRadius*0.15, 0, 0, Math.PI*2);
+                        ctx.fill();
+                    } else if (fHair === 'goatee') {
+                        ctx.beginPath();
+                        ctx.arc(faceX, faceY + headRadius*0.6, headRadius*0.3, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                }
+
                 // Front Leg
-                drawCapsule(t.pelvis, t.fKnee, 12, outline);
-                drawCapsule(t.pelvis, t.fKnee, 10, skin);
-                drawCapsule(t.fKnee, t.fFoot, 10, outline);
-                drawCapsule(t.fKnee, t.fFoot, 8, skin);
+                drawDetailedLimb(t.pelvis, t.fFoot, f, legLength, 12, outline, skin);
 
                 // Front Arm (Bicep mutated)
-                drawCapsule(t.neck, t.fHand, bicepW, outline);
-                drawCapsule(t.neck, t.fHand, bicepW - 2, skin);
+                let fBend = f;
+                if (this.state === 'block') fBend = -f;
+                drawDetailedLimb(t.neck, t.fHand, fBend, armLength, bicepW, outline, skin, true);
+
                 // Front Glove
                 ctx.fillStyle = gloves;
-                ctx.beginPath(); ctx.arc(t.fHand.x, t.fHand.y, 12, 0, Math.PI*2); ctx.fill();
-
-                ctx.restore();
+                ctx.strokeStyle = outline;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                if (gType === 'mma') {
+                    ctx.arc(t.fHand.x, t.fHand.y, 8, 0, Math.PI*2);
+                } else {
+                    ctx.arc(t.fHand.x, t.fHand.y, 13, 0, Math.PI*2);
+                }
+                ctx.fill(); ctx.stroke();
+ctx.restore();
             }
         }
 
         // --- COMBAT LOGIC ---
         const moves = {
-            jab:        { type: 'high', dmg: 5, cost: 10, dur: 250, reach: 65, active: [100, 200] },
-            cross:      { type: 'high', dmg: 12, cost: 18, dur: 400, reach: 75, active: [200, 300] },
-            body_jab:   { type: 'low',  dmg: 7, cost: 12, dur: 300, reach: 60, active: [150, 250] },
-            body_cross: { type: 'low',  dmg: 15, cost: 20, dur: 450, reach: 70, active: [250, 350] },
-            low_kick:   { type: 'low',  dmg: 10, cost: 15, dur: 350, reach: 60, active: [150, 250] },
-            high_kick:  { type: 'high', dmg: 20, cost: 30, dur: 600, reach: 70, active: [350, 450] }
+            jab:            { type: 'high', dmg: 5,  cost: 10, dur: 250, reach: 65,  active: [100, 200] },
+            cross:          { type: 'high', dmg: 12, cost: 18, dur: 400, reach: 75,  active: [200, 300] },
+            body_jab:       { type: 'low',  dmg: 7,  cost: 12, dur: 300, reach: 60,  active: [150, 250] },
+            body_cross:     { type: 'low',  dmg: 15, cost: 20, dur: 450, reach: 70,  active: [250, 350] },
+            low_kick:       { type: 'low',  dmg: 10, cost: 15, dur: 350, reach: 60,  active: [150, 250] },
+            high_kick:      { type: 'high', dmg: 20, cost: 30, dur: 600, reach: 70,  active: [350, 450] },
+            superman_punch: { type: 'high', dmg: 25, cost: 35, dur: 700, reach: 90,  active: [400, 550], isFlying: true },
+            flying_knee:    { type: 'high', dmg: 22, cost: 30, dur: 650, reach: 75,  active: [350, 500], isFlying: true },
+            flying_kick:    { type: 'high', dmg: 30, cost: 45, dur: 800, reach: 100, active: [500, 650], isFlying: true }
         };
 
         function initiateAttack(fighter, moveName) {
@@ -644,7 +849,13 @@
                 fighter.stats.stamina -= move.cost;
                 fighter.changeState(moveName, move.dur, move);
                 fighter.keyReleased = false; // Prevent holding button
+
+                // Add forward momentum for flying moves
+                if (move.isFlying) {
+                    fighter.vx = fighter.facing * (moveName === 'superman_punch' ? 8 : 6);
+                }
             }
+        }
         }
 
         let particles = [];
@@ -699,8 +910,14 @@
                             // DODGE I-FRAMES LOGIC
                             // If defender is dodging, and in the first 300ms, they are invincible!
                             let isDodged = false;
-                            if (defender.state === 'dodge' && (400 - defender.stateTimer) < 300) {
-                                isDodged = true;
+                            // I-frames for dodge/duck
+                            if ((defender.state === 'dodge' || defender.state === 'duck') && (400 - defender.stateTimer) < 300) {
+                                // High attacks miss ducking/dodging opponents completely
+                                if (move.type === 'high') {
+                                    isDodged = true;
+                                } else if (defender.state === 'dodge') {
+                                    isDodged = true; // directional dodge avoids everything in first 300ms
+                                }
                             }
 
                             attacker.hasHit = true;
@@ -712,9 +929,16 @@
                                 let dmg = move.dmg + (attacker.stats.power * 0.5);
                                 
                                 // Blocking logic
-                                if (defender.state === 'block') {
+                                if (defender.state === 'block' || defender.state === 'low_block') {
                                     dmg -= defender.stats.defense;
-                                    dmg *= 0.3; // Block mitigates 70% damage
+
+                                    // High block vs High attack = good. Low block vs Low attack = good.
+                                    if ((defender.state === 'block' && move.type === 'high') ||
+                                        (defender.state === 'low_block' && move.type === 'low')) {
+                                        dmg *= 0.2; // Perfect block (80% mitigation)
+                                    } else {
+                                        dmg *= 0.6; // Wrong block (40% mitigation)
+                                    }
                                 } else {
                                     dmg -= defender.stats.defense * 0.5;
                                 }
@@ -771,21 +995,28 @@
                     pFighter.vy = -12;
                 }
 
-                // Dodge (Bob and Weave - fixed to allow while walking)
+                // Dodge / Duck
                 if (keys.s && pFighter.isGrounded && ['idle','walk'].includes(pFighter.state) && pFighter.keyReleased) {
                     if (pFighter.stats.stamina >= 15) {
                         pFighter.stats.stamina -= 15;
-                        pFighter.changeState('dodge', 400); // 400ms animation
+                        if (keys.a || keys.d) {
+                            // Directional Dodge
+                            pFighter.changeState('dodge', 400);
+                            pFighter.vx = (keys.d ? 1 : -1) * 3; // Slide in direction
+                        } else {
+                            // Duck / Slip
+                            pFighter.changeState('duck', 400);
+                        }
                         pFighter.keyReleased = false;
-                        pFighter.vx = pFighter.facing * -2; // Slight slide backwards
                     }
                 }
 
-                // Block
-                if (keys.o && pFighter.isGrounded && ['idle','walk','block'].includes(pFighter.state)) {
-                    if (pFighter.state !== 'block') pFighter.changeState('block', 9999);
+                // Block (High / Low)
+                if (keys.o && pFighter.isGrounded && ['idle','walk','block','low_block'].includes(pFighter.state)) {
+                    let blockState = keys.shift ? 'low_block' : 'block';
+                    if (pFighter.state !== blockState) pFighter.changeState(blockState, 9999);
                     pFighter.lastBlockTime = Date.now();
-                } else if (!keys.o && pFighter.state === 'block' && Date.now() - pFighter.lastBlockTime > 50) {
+                } else if (!keys.o && (pFighter.state === 'block' || pFighter.state === 'low_block') && Date.now() - pFighter.lastBlockTime > 50) {
                     pFighter.changeState('idle'); // Stop blocking when key released
                 }
 
@@ -795,6 +1026,11 @@
                     if (keys.i) initiateAttack(pFighter, keys.shift ? 'body_cross' : 'cross');
                     if (keys.j) initiateAttack(pFighter, 'low_kick');
                     if (keys.k) initiateAttack(pFighter, 'high_kick');
+                } else if (!pFighter.isGrounded && pFighter.keyReleased) {
+                    // Flying moves
+                    if (keys.i) initiateAttack(pFighter, 'superman_punch');
+                    if (keys.u || keys.j) initiateAttack(pFighter, 'flying_knee');
+                    if (keys.k) initiateAttack(pFighter, 'flying_kick');
                 }
 
                 if (moving && pFighter.state === 'idle') pFighter.changeState('walk', 9999);
@@ -1022,7 +1258,7 @@
         });
 
         // --- CUSTOMIZATION LISTENERS ---
-        ['height', 'weight', 'skin', 'shorts', 'hairstyle', 'haircolor'].forEach(key => {
+        ['height', 'weight', 'skin', 'shorts', 'hairstyle', 'haircolor', 'facialhair', 'tattoos', 'glovetype'].forEach(key => {
             document.getElementById(`custom-${key}`).addEventListener('input', (e) => {
                 let val = e.target.value;
                 if (key === 'height' || key === 'weight') {
