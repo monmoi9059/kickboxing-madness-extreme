@@ -119,9 +119,13 @@
             <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col justify-between">
                 <div>
                     <h2 class="text-2xl font-bold mb-4 text-red-500">Next Bout</h2>
-                    <div class="bg-gray-900 p-4 rounded-lg border border-gray-700 mb-4 text-center">
+                    <div id="opponent-choices" class="flex flex-col gap-2 mb-4">
+                        <!-- Choices will be rendered here -->
+                    </div>
+                    <div id="selected-opponent-details" class="bg-gray-900 p-4 rounded-lg border border-gray-700 mb-4 text-center">
                         <div id="opp-name" class="text-3xl font-black text-white mb-1 uppercase tracking-widest">Opponent</div>
                         <div id="opp-desc" class="text-gray-400 text-sm italic">Description</div>
+                        <div class="text-green-400 font-bold mt-2">Reward: $<span id="opp-reward">0</span></div>
                     </div>
                     
                     <div class="bg-gray-900 p-4 rounded-lg border border-gray-700">
@@ -275,6 +279,8 @@
         // --- ENGINE VARIABLES ---
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
+        let currentOpponentChoices = [];
+        let selectedOpponentIndex = 0;
         let pFighter, oFighter;
         let lastTime = 0;
         let gameLoopId;
@@ -1373,9 +1379,10 @@ ctx.restore();
                 document.getElementById('ko-overlay').classList.add('opacity-0');
 
                 if (playerWon) {
-                    const opp = opponents[playerStats.rank];
+                    const opp = currentOpponentChoices[selectedOpponentIndex];
                     playerStats.money += opp.reward;
                     playerStats.rank++;
+                    currentOpponentChoices = [];
                     document.getElementById('result-title').textContent = "YOU WON!";
                     document.getElementById('result-title').className = "text-5xl font-black mb-4 text-green-500";
                     document.getElementById('result-money').textContent = opp.reward;
@@ -1386,7 +1393,7 @@ ctx.restore();
                         document.getElementById('result-screen').classList.remove('hidden');
                     }
                 } else {
-                    const opp = opponents[playerStats.rank];
+                    const opp = currentOpponentChoices[selectedOpponentIndex];
                     const loserBonus = Math.floor(opp.reward * 0.25); // Give 25% of reward for losing
                     playerStats.money += loserBonus;
                     
@@ -1399,23 +1406,82 @@ ctx.restore();
         }
 
         // --- MENU LOGIC ---
+
+        function renderOpponentChoices() {
+            const container = document.getElementById('opponent-choices');
+            container.innerHTML = '';
+
+            currentOpponentChoices.forEach((opp, index) => {
+                const btn = document.createElement('button');
+
+                let diffText = "Medium";
+                let colorClass = "bg-yellow-600 hover:bg-yellow-500";
+                if (opp.difficultyMult < 0.9) {
+                    diffText = "Easy";
+                    colorClass = "bg-green-600 hover:bg-green-500";
+                } else if (opp.difficultyMult > 1.1) {
+                    diffText = "Hard";
+                    colorClass = "bg-red-600 hover:bg-red-500";
+                }
+
+                const isSelected = index === selectedOpponentIndex;
+                const borderClass = isSelected ? "border-4 border-white" : "border border-gray-700 opacity-75";
+
+                btn.className = `w-full p-2 rounded flex justify-between items-center transition text-white ${colorClass} ${borderClass}`;
+                btn.innerHTML = `
+                    <span class="font-bold">${opp.name}</span>
+                    <span class="text-xs font-bold uppercase tracking-widest bg-black bg-opacity-50 px-2 py-1 rounded">${diffText}</span>
+                `;
+
+                btn.onclick = () => {
+                    selectedOpponentIndex = index;
+                    renderOpponentChoices();
+                };
+
+                container.appendChild(btn);
+            });
+
+            const opp = currentOpponentChoices[selectedOpponentIndex];
+            document.getElementById('opp-name').textContent = opp.name;
+            document.getElementById('opp-desc').textContent = opp.desc;
+            document.getElementById('opp-reward').textContent = opp.reward;
+
+            document.getElementById('opp-hp').textContent = opp.stats.maxHp;
+            document.getElementById('opp-pow').textContent = opp.stats.power;
+            document.getElementById('opp-def').textContent = opp.stats.defense;
+            document.getElementById('opp-stam').textContent = opp.stats.maxStamina;
+
+            document.getElementById('my-hp').textContent = playerStats.maxHp;
+            document.getElementById('my-pow').textContent = playerStats.power;
+            document.getElementById('my-def').textContent = playerStats.defense;
+            document.getElementById('my-stam').textContent = playerStats.maxStamina;
+        }
+
         function updateGymUI() {
             document.getElementById('player-money').textContent = playerStats.money;
             
             if (playerStats.rank < opponents.length) {
-                const opp = opponents[playerStats.rank];
-                document.getElementById('opp-name').textContent = opp.name;
-                document.getElementById('opp-desc').textContent = opp.desc;
-                
-                document.getElementById('opp-hp').textContent = opp.stats.maxHp;
-                document.getElementById('opp-pow').textContent = opp.stats.power;
-                document.getElementById('opp-def').textContent = opp.stats.defense;
-                document.getElementById('opp-stam').textContent = opp.stats.maxStamina;
-                
-                document.getElementById('my-hp').textContent = playerStats.maxHp;
-                document.getElementById('my-pow').textContent = playerStats.power;
-                document.getElementById('my-def').textContent = playerStats.defense;
-                document.getElementById('my-stam').textContent = playerStats.maxStamina;
+                if (currentOpponentChoices.length === 0) {
+                    let baseOpp = opponents[playerStats.rank];
+                    const numChoices = Math.floor(Math.random() * 3) + 3; // 3 to 5
+                    for (let i = 0; i < numChoices; i++) {
+                        const diff = 0.7 + (Math.random() * 0.6);
+                        let newOpp = JSON.parse(JSON.stringify(baseOpp));
+                        const diffName = diff < 0.9 ? "Weak " : (diff > 1.1 ? "Elite " : "");
+                        newOpp.name = `${diffName}${newOpp.name}`;
+                        newOpp.stats.maxHp = Math.floor(newOpp.stats.maxHp * diff);
+                        newOpp.stats.power = Math.floor(newOpp.stats.power * diff);
+                        newOpp.stats.defense = Math.floor(newOpp.stats.defense * diff);
+                        newOpp.stats.maxStamina = Math.floor(newOpp.stats.maxStamina * diff);
+                        newOpp.stats.staminaRegen = Math.floor(newOpp.stats.staminaRegen * diff);
+                        newOpp.reward = Math.floor(newOpp.reward * diff);
+                        newOpp.difficultyMult = diff;
+                        currentOpponentChoices.push(newOpp);
+                    }
+                    currentOpponentChoices.sort((a, b) => a.reward - b.reward);
+                    selectedOpponentIndex = 0;
+                }
+                renderOpponentChoices();
             }
 
             const container = document.getElementById('upgrades-container');
@@ -1462,7 +1528,7 @@ ctx.restore();
             document.getElementById('combat-screen').classList.remove('hidden');
             document.getElementById('combat-screen').classList.add('flex');
 
-            const oppData = opponents[playerStats.rank];
+            const oppData = currentOpponentChoices[selectedOpponentIndex];
             document.getElementById('hud-opp-name').textContent = oppData.name.toUpperCase();
 
             pFighter = new Fighter(100, 0, 1, playerStats, true);
