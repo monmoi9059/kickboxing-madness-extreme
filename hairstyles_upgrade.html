@@ -307,6 +307,9 @@
             if (!previewFighter) {
                 previewFighter = new Fighter(150, 0, 1, playerStats, true);
                 previewFighter.state = 'idle';
+            } else {
+                // Completely re-sync stats so new widths calculate properly
+                previewFighter.stats = JSON.parse(JSON.stringify(playerStats));
             }
 
             // Sync stats
