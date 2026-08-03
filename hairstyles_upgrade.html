@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kickboxing Career</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #111827; color: white; overflow-x: hidden; }
+        #game-canvas { background: linear-gradient(to bottom, #1f2937, #111827); border-bottom: 4px solid #374151; }
+        .hp-bar-fill { transition: width 0.2s ease-out; }
+        .stamina-bar-fill { transition: width 0.1s linear; }
+        
+        /* Particle animations */
+        .particle { position: absolute; pointer-events: none; border-radius: 50%; }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-30px) scale(1.5); } }
+        
+        /* UI animations */
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        .shake-anim { animation: shake 0.2s ease-in-out; }
+        
+        /* Combo Text */
+        .combo-text { font-weight: 900; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center select-none">
+
+    <!-- Main Menu / Gym Hub -->
+    <div id="hub-screen" class="w-full max-w-6xl p-6 flex flex-col gap-6">
+        <div class="text-center">
+            <h1 class="text-5xl font-black text-red-500 uppercase tracking-wider mb-2">Road to GOAT</h1>
+            <p class="text-gray-400">Train your fighter, climb the ranks.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Locker Room (Customization) -->
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold mb-4">Locker Room</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-sm text-gray-400 flex justify-between">Height <span id="val-height" class="font-bold text-white">1.00x</span></label>
+                            <input type="range" id="custom-height" min="0.8" max="1.3" step="0.05" value="1" class="w-full cursor-pointer accent-blue-500">
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-400 flex justify-between">Weight <span id="val-weight" class="font-bold text-white">1.00x</span></label>
+                            <input type="range" id="custom-weight" min="0.7" max="1.5" step="0.05" value="1" class="w-full cursor-pointer accent-blue-500">
+                        </div>
+                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
+                            <label class="text-sm text-gray-300 font-bold">Skin Tone</label>
+                            <input type="color" id="custom-skin" value="#e2e8f0" class="h-8 w-12 bg-transparent border-0 cursor-pointer rounded">
+                        </div>
+                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
+                            <label class="text-sm text-gray-300 font-bold">Trunks Color</label>
+                            <input type="color" id="custom-shorts" value="#3b82f6" class="h-8 w-12 bg-transparent border-0 cursor-pointer rounded">
+                        </div>
+                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
+                            <label class="text-sm text-gray-300 font-bold">Hair Style</label>
+                            <select id="custom-hairstyle" class="bg-gray-800 text-white text-sm rounded border border-gray-600 p-1 cursor-pointer">
+                                <option value="short">Short</option>
+                                <option value="bald">Bald</option>
+                                <option value="mohawk">Mohawk</option>
+                                <option value="afro">Afro</option>
+                                <option value="spiky">Spiky</option>
+                            </select>
+                        </div>
+                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
+                            <label class="text-sm text-gray-300 font-bold">Hair Color</label>
+                            <input type="color" id="custom-haircolor" value="#000000" class="h-8 w-12 bg-transparent border-0 cursor-pointer rounded">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col">
+                <div class="flex justify-between items-end mb-4">
+                    <h2 class="text-2xl font-bold">Gym</h2>
+                    <div class="text-green-400 font-bold text-xl">$<span id="player-money">0</span></div>
+                </div>
+                <div id="upgrades-container" class="space-y-3 overflow-y-auto pr-2 flex-grow">
+                    <!-- Upgrades injected here via JS -->
+                </div>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold mb-4 text-red-500">Next Bout</h2>
+                    <div class="bg-gray-900 p-4 rounded-lg border border-gray-700 mb-4 text-center">
+                        <div id="opp-name" class="text-3xl font-black text-white mb-1 uppercase tracking-widest">Opponent</div>
+                        <div id="opp-desc" class="text-gray-400 text-sm italic">Description</div>
+                    </div>
+                    
+                    <div class="bg-gray-900 p-4 rounded-lg border border-gray-700">
+                        <div class="grid grid-cols-3 gap-y-3 text-sm text-center items-center">
+                            <div class="text-gray-300 font-black">YOU</div>
+                            <div class="text-gray-600 text-xs font-bold uppercase tracking-widest">Vs</div>
+                            <div class="text-gray-300 font-black">OPP</div>
+
+                            <div id="my-hp" class="text-lg font-bold text-green-400">0</div>
+                            <div class="text-gray-500 uppercase text-xs">Health</div>
+                            <div id="opp-hp" class="text-lg font-bold text-green-400">0</div>
+
+                            <div id="my-stam" class="text-lg font-bold text-yellow-400">0</div>
+                            <div class="text-gray-500 uppercase text-xs">Stamina</div>
+                            <div id="opp-stam" class="text-lg font-bold text-yellow-400">0</div>
+
+                            <div id="my-pow" class="text-lg font-bold text-red-400">0</div>
+                            <div class="text-gray-500 uppercase text-xs">Power</div>
+                            <div id="opp-pow" class="text-lg font-bold text-red-400">0</div>
+
+                            <div id="my-def" class="text-lg font-bold text-blue-400">0</div>
+                            <div class="text-gray-500 uppercase text-xs">Defense</div>
+                            <div id="opp-def" class="text-lg font-bold text-blue-400">0</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button id="btn-fight" class="w-full mt-6 bg-red-600 hover:bg-red-500 text-white font-bold py-4 rounded-lg text-xl transition transform hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(220,38,38,0.5)]">
+                    ENTER THE RING
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Combat Screen -->
+    <div id="combat-screen" class="hidden w-full max-w-5xl p-4 flex-col relative">
+        <!-- HUD -->
+        <div class="flex justify-between items-end mb-2 px-4">
+            <!-- Player HUD -->
+            <div class="w-2/5">
+                <div class="flex justify-between mb-1">
+                    <span class="font-bold text-lg">YOU</span>
+                    <span id="p-status" class="text-sm font-bold opacity-0 transition-opacity">BLOCKING</span>
+                </div>
+                <div class="h-6 bg-gray-800 border-2 border-gray-600 rounded-full overflow-hidden mb-1 relative">
+                    <div id="p-hp-bar" class="h-full bg-green-500 hp-bar-fill w-full"></div>
+                    <div id="p-hp-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">100/100</div>
+                </div>
+                <div class="h-3 bg-gray-800 border border-gray-600 rounded-full overflow-hidden">
+                    <div id="p-stamina-bar" class="h-full bg-yellow-400 stamina-bar-fill w-full"></div>
+                </div>
+                <div id="p-combo" class="combo-text text-yellow-400 text-2xl mt-2 opacity-0 transition-opacity">2 HIT COMBO!</div>
+            </div>
+
+            <div class="text-3xl font-black text-gray-600 pb-4">VS</div>
+
+            <!-- Opponent HUD -->
+            <div class="w-2/5 text-right">
+                <div class="flex justify-between mb-1">
+                    <span id="o-status" class="text-sm font-bold opacity-0 transition-opacity">BLOCKING</span>
+                    <span id="hud-opp-name" class="font-bold text-lg text-red-400">OPPONENT</span>
+                </div>
+                <div class="h-6 bg-gray-800 border-2 border-gray-600 rounded-full overflow-hidden mb-1 relative flex justify-end">
+                    <div id="o-hp-bar" class="h-full bg-red-500 hp-bar-fill w-full"></div>
+                    <div id="o-hp-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">100/100</div>
+                </div>
+                <div class="h-3 bg-gray-800 border border-gray-600 rounded-full overflow-hidden flex justify-end">
+                    <div id="o-stamina-bar" class="h-full bg-yellow-400 stamina-bar-fill w-full"></div>
+                </div>
+                <div id="o-combo" class="combo-text text-red-400 text-2xl mt-2 opacity-0 transition-opacity">2 HIT COMBO!</div>
+            </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="relative w-full rounded-lg overflow-hidden shadow-2xl border-2 border-gray-700 bg-gray-900" style="aspect-ratio: 16/7;">
+            <canvas id="game-canvas" width="1000" height="437" class="w-full h-full block"></canvas>
+            
+            <!-- KO Text Overlay -->
+            <div id="ko-overlay" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-500">
+                <h1 class="text-8xl font-black text-red-600 combo-text tracking-widest italic transform -skew-x-12 scale-150">K.O.</h1>
+            </div>
+        </div>
+
+        <!-- Controls Guide -->
+        <div class="bg-gray-800 p-3 mt-4 rounded-lg flex flex-wrap justify-between items-center text-sm border border-gray-700 shadow-md">
+            <div class="text-gray-300 w-full md:w-auto mb-2 md:mb-0">
+                <span class="text-gray-500 mr-2">MOVE/JUMP:</span> <strong class="bg-gray-700 px-2 py-1 rounded text-white mr-1">W A D</strong>
+                <span class="text-gray-500 mx-2">| DODGE:</span> <strong class="bg-gray-700 px-2 py-1 rounded text-green-400">S</strong>
+            </div>
+            <div class="text-gray-300 w-full md:w-auto">
+                <span class="text-gray-500 mr-2">ATTACK:</span> <strong class="bg-gray-700 px-2 py-1 rounded text-red-400 mr-1">U I J K</strong> 
+                <span class="text-gray-400 text-xs mx-1">(Hold <strong class="text-white">Shift</strong> for Body)</span>
+                <span class="text-gray-500 mx-2">| BLOCK:</span> <strong class="bg-gray-700 px-2 py-1 rounded text-blue-400">O</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Screen (No absolute positioning to prevent blank screen bug) -->
+    <div id="result-screen" class="hidden w-full max-w-2xl p-8 mt-10 bg-gray-800 rounded-2xl border-4 border-gray-700 text-center shadow-2xl">
+        <h1 id="result-title" class="text-5xl font-black mb-4">MATCH OVER</h1>
+        <p id="result-desc" class="text-xl text-gray-300 mb-6">You fought hard.</p>
+        
+        <div class="bg-gray-900 p-6 rounded-xl mb-8 border border-gray-700">
+            <div class="text-lg text-gray-400 mb-2">Prize Money Earned</div>
+            <div class="text-5xl font-bold text-green-400">$<span id="result-money">0</span></div>
+        </div>
+        
+        <button id="btn-continue" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-lg text-xl transition transform hover:scale-105">
+            RETURN TO GYM
+        </button>
+    </div>
+
+    <div id="goat-screen" class="hidden w-full max-w-3xl p-8 mt-10 bg-yellow-600 rounded-2xl text-center shadow-[0_0_50px_rgba(202,138,4,0.6)]">
+        <h1 class="text-6xl font-black text-white mb-6 drop-shadow-lg">UNDISPUTED GOAT</h1>
+        <p class="text-2xl text-yellow-100 mb-8">You have defeated every challenger and claimed the ultimate title.</p>
+        <button id="btn-restart" class="bg-white text-yellow-700 font-bold py-4 px-8 rounded-full text-xl hover:bg-gray-100 transition transform hover:scale-110 shadow-lg">
+            START NEW CAREER
+        </button>
+    </div>
+
+    <script>
+        // --- GAME DATA & STATE ---
+        let playerStats = {
+            hp: 100, maxHp: 100,
+            power: 10,
+            defense: 5,
+            stamina: 100, maxStamina: 100, staminaRegen: 15,
+            money: 0, rank: 0,
+            appearance: { h: 1.0, w: 1.0, skin: '#e2e8f0', shorts: '#3b82f6', gloves: '#ef4444', hairstyle: 'short', haircolor: '#000000' }
+        };
+
+        const upgradeCosts = {
+            maxHp: { base: 50, mult: 1.4, name: "Max Health (Chest Width)", val: 20 },
+            power: { base: 60, mult: 1.5, name: "Power (Bicep Size)", val: 3 },
+            defense: { base: 40, mult: 1.4, name: "Defense (Traps Size)", val: 2 },
+            maxStamina: { base: 40, mult: 1.3, name: "Max Stamina (Abs)", val: 15 },
+            staminaRegen: { base: 50, mult: 1.5, name: "Cardio", val: 3 }
+        };
+
+        let upgradeLevels = { maxHp: 0, power: 0, defense: 0, maxStamina: 0, staminaRegen: 0 };
+
+        const opponents = [
+            { name: "Glass Joe", desc: "A weak local amateur.", stats: { maxHp: 80, power: 5, defense: 2, maxStamina: 80, staminaRegen: 10, appearance: { h: 0.85, w: 0.8, skin: '#fcd34d', shorts: '#ef4444', gloves: '#3b82f6', hairstyle: 'short', haircolor: '#fbbf24' } }, reward: 100 },
+            { name: "Iron Mike", desc: "Hits hard, but gasses out quick.", stats: { maxHp: 120, power: 18, defense: 5, maxStamina: 90, staminaRegen: 8, appearance: { h: 0.95, w: 1.15, skin: '#b45309', shorts: '#000000', gloves: '#ef4444', hairstyle: 'bald', haircolor: '#000000' } }, reward: 250 },
+            { name: "Slippery Pete", desc: "Fast and elusive kickboxer.", stats: { maxHp: 110, power: 12, defense: 10, maxStamina: 150, staminaRegen: 25, appearance: { h: 1.1, w: 0.9, skin: '#fca5a5', shorts: '#10b981', gloves: '#eab308', hairstyle: 'afro', haircolor: '#451a03' } }, reward: 500 },
+            { name: "The Crusher", desc: "A massive, immovable object.", stats: { maxHp: 250, power: 25, defense: 20, maxStamina: 120, staminaRegen: 12, appearance: { h: 1.2, w: 1.4, skin: '#cbd5e1', shorts: '#1e3a8a', gloves: '#000000', hairstyle: 'mohawk', haircolor: '#dc2626' } }, reward: 1000 },
+            { name: "The Reaper", desc: "The Undisputed Champion.", stats: { maxHp: 350, power: 35, defense: 30, maxStamina: 200, staminaRegen: 30, appearance: { h: 1.05, w: 1.1, skin: '#111827', shorts: '#7f1d1d', gloves: '#dc2626', hairstyle: 'spiky', haircolor: '#ffffff' } }, reward: 5000 }
+        ];
+
+        // --- ENGINE VARIABLES ---
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        let pFighter, oFighter;
+        let lastTime = 0;
+        let gameLoopId;
+        const keys = { w: false, a: false, s: false, d: false, u: false, i: false, j: false, k: false, o: false, shift: false };
+        let pComboCount = 0, oComboCount = 0;
+        let lastHitTime = 0;
+        const state = { inFight: false };
+
+        // --- INPUT HANDLING (Fixed the S key and Boolean flipping) ---
+        window.addEventListener('keydown', (e) => {
+            if(!state.inFight) return;
+            let key = e.key.toLowerCase();
+            if (e.key === 'Shift') key = 'shift';
+            
+            if (keys.hasOwnProperty(key)) {
+                keys[key] = true; // MUST BE TRUE
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            let key = e.key.toLowerCase();
+            if (e.key === 'Shift') key = 'shift';
+            
+            if (keys.hasOwnProperty(key)) {
+                keys[key] = false; // MUST BE FALSE
+                if (['u','i','j','k','s'].includes(key) && pFighter) {
+                    pFighter.keyReleased = true; // Allow next action
+                }
+            }
+        });
+
+        // --- MATH & UTILS ---
+        function lerp(start, end, amt) {
+            return (1 - amt) * start + amt * end;
+        }
+
+        // --- FIGHTER CLASS (Includes 2.5D Renderer & Muscles) ---
+        class Fighter {
+            constructor(x, y, facing, stats, isPlayer) {
+                this.x = x;
+                this.y = y;
+                this.width = 60;
+                this.height = 180;
+                this.facing = facing; // 1 for right, -1 for left
+                this.stats = JSON.parse(JSON.stringify(stats));
+                this.stats.hp = this.stats.maxHp;
+                this.stats.stamina = this.stats.maxStamina;
+                this.isPlayer = isPlayer;
+                
+                this.vx = 0;
+                this.vy = 0;
+                this.isGrounded = false;
+                this.speed = 4;
+                
+                this.state = 'idle'; // idle, walk, hit, ko, block, dodge, attack states...
+                this.stateTimer = 0;
+                this.animTime = 0;
+                this.keyReleased = true;
+                
+                this.currentMove = null;
+                this.hasHit = false;
+                this.lastBlockTime = 0;
+
+                this.joints = {
+                    head: {x: 0, y: -70}, neck: {x: 0, y: -50}, pelvis: {x: 0, y: 10},
+                    fHand: {x: 20, y: -40}, bHand: {x: -10, y: -30},
+                    fFoot: {x: 20, y: 90}, bFoot: {x: -20, y: 90},
+                    fKnee: {x: 25, y: 50}, bKnee: {x: -15, y: 50}
+                };
+            }
+
+            changeState(newState, duration = 0, moveData = null) {
+                this.state = newState;
+                this.stateTimer = duration;
+                this.animTime = 0;
+                this.currentMove = moveData;
+                this.hasHit = false;
+            }
+
+            update(dt) {
+                // Physics
+                this.vy += 0.8; // Gravity
+                this.y += this.vy;
+                this.x += this.vx;
+
+                // Floor collision
+                const floorY = canvas.height - 20;
+                if (this.y + this.height > floorY) {
+                    this.y = floorY - this.height;
+                    this.vy = 0;
+                    this.isGrounded = true;
+                } else {
+                    this.isGrounded = false;
+                }
+
+                // Arena bounds
+                if (this.x < 0) this.x = 0;
+                if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
+
+                // Friction
+                if (this.state !== 'walk' && this.isGrounded) {
+                    this.vx *= 0.8;
+                }
+
+                // Timers & Stamina
+                this.animTime += dt;
+                if (this.stateTimer > 0) {
+                    this.stateTimer -= dt;
+                    if (this.stateTimer <= 0 && this.state !== 'ko') {
+                        this.changeState('idle');
+                    }
+                }
+
+                if (this.state === 'idle' || this.state === 'walk') {
+                    if (this.stats.stamina < this.stats.maxStamina) {
+                        this.stats.stamina += (this.stats.staminaRegen * dt) / 1000;
+                        if (this.stats.stamina > this.stats.maxStamina) this.stats.stamina = this.stats.maxStamina;
+                    }
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+
+                const app = this.stats.appearance || { h: 1, w: 1, skin: this.isPlayer ? '#e2e8f0' : '#4b5563', shorts: this.isPlayer ? '#3b82f6' : '#ef4444', gloves: this.isPlayer ? '#ef4444' : '#22c55e' };
+                const h = app.h;
+                const w = app.w;
+
+                // Add a dynamic shadow to ground the fighters
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                ctx.beginPath();
+                ctx.ellipse(this.x + this.width/2, canvas.height - 15, 35 * w, 8, 0, 0, Math.PI*2);
+                ctx.fill();
+
+                // Translate: Center X, align Y so feet hit the floor perfectly regardless of Height scale
+                ctx.translate(this.x + this.width/2, (this.y + this.height) - (90 * h));
+                
+                // --- MUSCLE MUTATION MATH (Capped for aesthetic limits) ---
+                let chestW = Math.min(45, 20 + (this.stats.maxHp / 15)) * w;
+                let bicepW = Math.min(22, 8 + (this.stats.power / 4)) * w;
+                let trapsW = Math.min(25, 10 + (this.stats.defense / 2.5)) * w;
+                let hasAbs = this.stats.maxStamina >= 120;
+                
+                // Color theme
+                const skin = app.skin; 
+                const outline = 'rgba(0,0,0,0.6)'; // Universal dark outline
+                const shorts = app.shorts; 
+                const gloves = app.gloves; 
+                
+                const f = this.facing; // Facing multiplier
+
+                // --- FLUID ANIMATION ENGINE ---
+                let bounce = Math.sin(this.animTime * 0.006) * 2;
+                
+                // 1. Base Idle Pose (with natural breathing bounce)
+                let baseT = {
+                    head: {x: 0, y: -70*h + bounce},
+                    neck: {x: 0, y: -50*h},
+                    pelvis: {x: 0, y: 10*h + bounce},
+                    fHand: {x: 20*f*w, y: -40*h + bounce},
+                    bHand: {x: -10*f*w, y: -30*h + bounce},
+                    fFoot: {x: 20*f*w, y: 90*h},
+                    bFoot: {x: -20*f*w, y: 90*h},
+                    fKnee: {x: 25*f*w, y: 50*h},
+                    bKnee: {x: -15*f*w, y: 50*h}
+                };
+
+                // 2. Add Walk Stride Offsets
+                if (this.state === 'walk') {
+                    let stride = Math.sin(this.animTime * 0.012) * 25;
+                    baseT.fFoot.x += stride * f;
+                    baseT.bFoot.x -= stride * f;
+                    baseT.fKnee.x += stride * 0.5 * f;
+                    baseT.bKnee.x -= stride * 0.5 * f;
+                    baseT.pelvis.y -= Math.abs(stride) * 0.3;
+                    baseT.fHand.x += stride * 0.2 * f;
+                    baseT.bHand.x -= stride * 0.2 * f;
+                }
+
+                // 3. Define Target Pose based on State
+                let targetT = JSON.parse(JSON.stringify(baseT));
+                let isAttack = false;
+                let attackIntensity = 0;
+
+                if (this.currentMove && this.state !== 'hit' && this.state !== 'ko' && this.state !== 'dodge' && this.state !== 'block') {
+                    isAttack = true;
+                    // Calculate animation progress (0 to 1)
+                    let p = (this.currentMove.dur - this.stateTimer) / this.currentMove.dur;
+                    // Sine wave creates natural ease-in / ease-out extension (0 -> 1 -> 0)
+                    attackIntensity = Math.sin(p * Math.PI);
+
+                    if (this.state === 'jab') {
+                        targetT.fHand = {x: 75*f*w, y: -65*h};
+                        targetT.bHand = {x: 5*f*w, y: -65*h};
+                        targetT.head.x += 15*f; targetT.pelvis.x += 10*f;
+                    } else if (this.state === 'cross') {
+                        targetT.bHand = {x: 85*f*w, y: -60*h};
+                        targetT.fHand = {x: -15*f*w, y: -65*h}; // Pull back guard
+                        targetT.pelvis.x += 20*f; targetT.head.x += 20*f;
+                        targetT.bKnee.x += 15*f; targetT.fKnee.x -= 5*f; // Hip rotation
+                    } else if (this.state === 'body_jab') {
+                        targetT.pelvis.y += 30*h; targetT.head.y += 30*h;
+                        targetT.fHand = {x: 65*f*w, y: -5*h};
+                        targetT.bHand = {x: 5*f*w, y: -45*h};
+                    } else if (this.state === 'body_cross') {
+                        targetT.pelvis.y += 30*h; targetT.head.y += 30*h;
+                        targetT.bHand = {x: 75*f*w, y: -5*h};
+                        targetT.fHand = {x: -15*f*w, y: -45*h};
+                        targetT.pelvis.x += 20*f;
+                    } else if (this.state === 'low_kick') {
+                        targetT.bFoot = {x: 65*f*w, y: 65*h};
+                        targetT.bKnee = {x: 35*f*w, y: 45*h};
+                        targetT.pelvis.x -= 15*f; targetT.head.x -= 20*f;
+                        targetT.fHand.x -= 15*f; targetT.bHand.x += 25*f; // Arm swing for balance
+                    } else if (this.state === 'high_kick') {
+                        targetT.bFoot = {x: 65*f*w, y: -70*h};
+                        targetT.bKnee = {x: 35*f*w, y: -25*h};
+                        targetT.pelvis.x -= 25*f; targetT.head.x -= 30*f; targetT.head.y += 10*h; // Lean back
+                        targetT.fHand.x -= 20*f; targetT.bHand.x += 35*f;
+                    }
+                } else if (this.state === 'block') {
+                    targetT.fHand = {x: 15*f*w, y: -65*h};
+                    targetT.bHand = {x: 0, y: -70*h};
+                    targetT.head.x -= 12*f; targetT.head.y += 8*h;
+                    targetT.pelvis.y += 8*h; // Crunch down tight
+                } else if (this.state === 'dodge') {
+                    targetT.pelvis.y += 35*h; targetT.head.y += 40*h;
+                    targetT.head.x -= 30*f*w; targetT.neck.x -= 25*f*w;
+                    targetT.fHand = { x: 5*f*w, y: -30*h };
+                    targetT.bHand = { x: 0, y: -40*h };
+                    targetT.fKnee.x += 20*f*w; targetT.bKnee.x -= 15*f*w;
+                } else if (this.state === 'hit') {
+                    let p = (300 - this.stateTimer) / 300; 
+                    let hitIntensity = Math.pow(1 - p, 3); // Snaps back violently, recovers slowly
+                    targetT.head.x -= 40*f*w * hitIntensity;
+                    targetT.head.y -= 20*h * hitIntensity;
+                    targetT.neck.x -= 25*f*w * hitIntensity;
+                    targetT.pelvis.x -= 10*f*w * hitIntensity;
+                    targetT.fHand.x -= 20*f*w * hitIntensity;
+                    targetT.bHand.x -= 20*f*w * hitIntensity;
+                } else if (this.state === 'ko') {
+                    targetT.head = {x: -60*f, y: 80};
+                    targetT.neck = {x: -40*f, y: 70};
+                    targetT.pelvis = {x: 10*f, y: 75};
+                    targetT.fHand = {x: -30*f, y: 85};
+                    targetT.bHand = {x: 30*f, y: 85};
+                    targetT.fFoot = {x: 70*f, y: 90};
+                    targetT.bFoot = {x: 40*f, y: 90};
+                    targetT.fKnee = {x: 50*f, y: 85};
+                    targetT.bKnee = {x: 20*f, y: 85};
+                }
+
+                // Blend Attack Extension smoothly
+                if (isAttack) {
+                    for (let joint in targetT) {
+                        targetT[joint].x = lerp(baseT[joint].x, targetT[joint].x, attackIntensity);
+                        targetT[joint].y = lerp(baseT[joint].y, targetT[joint].y, attackIntensity);
+                    }
+                }
+
+                // Smoothly Lerp Actual Current Joints to the Target Joints every frame
+                let smoothFactor = this.state === 'ko' ? 0.08 : 0.35; 
+                for (let joint in this.joints) {
+                    this.joints[joint].x = lerp(this.joints[joint].x, targetT[joint].x, smoothFactor);
+                    this.joints[joint].y = lerp(this.joints[joint].y, targetT[joint].y, smoothFactor);
+                }
+
+                let t = this.joints; // Pass finalized smoothed joints to renderer
+
+                // Helper to draw a capsule (limbs)
+                const drawCapsule = (p1, p2, width, color) => {
+                    ctx.beginPath();
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.lineWidth = width;
+                    ctx.strokeStyle = color;
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.stroke();
+                };
+
+                // --- RENDER ORDER (Back to Front) ---
+                
+                // Back Arm (Bicep mutated)
+                drawCapsule(t.neck, t.bHand, bicepW, outline); // outline
+                drawCapsule(t.neck, t.bHand, bicepW - 2, skin); // fill
+                // Back Glove
+                ctx.fillStyle = gloves;
+                ctx.beginPath(); ctx.arc(t.bHand.x, t.bHand.y, 10, 0, Math.PI*2); ctx.fill();
+                
+                // Back Leg
+                drawCapsule(t.pelvis, t.bKnee, 12, outline);
+                drawCapsule(t.pelvis, t.bKnee, 10, skin);
+                drawCapsule(t.bKnee, t.bFoot, 10, outline);
+                drawCapsule(t.bKnee, t.bFoot, 8, skin);
+
+                // Torso (Traps and Chest mutated)
+                ctx.fillStyle = skin;
+                ctx.strokeStyle = outline;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(t.neck.x - trapsW, t.neck.y); // Traps left
+                ctx.lineTo(t.neck.x + trapsW, t.neck.y); // Traps right
+                ctx.lineTo(t.pelvis.x + chestW/2, t.pelvis.y); // Hip right
+                ctx.lineTo(t.pelvis.x - chestW/2, t.pelvis.y); // Hip left
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+
+                // Six Pack (Stamina Mutation)
+                if (hasAbs && this.state !== 'ko') {
+                    ctx.strokeStyle = outline;
+                    ctx.lineWidth = 1.5;
+                    ctx.globalAlpha = 0.5;
+                    let absY = t.neck.y + 35;
+                    ctx.beginPath();
+                    // Center line
+                    ctx.moveTo(t.neck.x, absY); ctx.lineTo(t.pelvis.x, t.pelvis.y - 5);
+                    // Horizontal lines
+                    ctx.moveTo(t.neck.x - 5, absY + 5); ctx.lineTo(t.neck.x + 5, absY + 5);
+                    ctx.moveTo(t.neck.x - 6, absY + 15); ctx.lineTo(t.neck.x + 6, absY + 15);
+                    ctx.stroke();
+                    ctx.globalAlpha = 1.0;
+                }
+
+                // Shorts
+                ctx.fillStyle = shorts;
+                ctx.beginPath();
+                ctx.moveTo(t.pelvis.x - chestW/2 - 2, t.pelvis.y - 10*h);
+                ctx.lineTo(t.pelvis.x + chestW/2 + 2, t.pelvis.y - 10*h);
+                ctx.lineTo(t.pelvis.x + chestW/2, t.pelvis.y + 20*h);
+                ctx.lineTo(t.pelvis.x - chestW/2, t.pelvis.y + 20*h);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+
+                // Head
+                ctx.fillStyle = skin;
+                ctx.beginPath();
+                const headRadius = 16 * ((h+w)/2);
+                ctx.arc(t.head.x, t.head.y, headRadius, 0, Math.PI*2);
+                ctx.fill(); ctx.stroke();
+                
+                // Hair Rendering
+                const hStyle = app.hairstyle || 'bald';
+                if (hStyle !== 'bald') {
+                    ctx.fillStyle = app.haircolor || '#000000';
+                    if (hStyle === 'short') {
+                        ctx.beginPath();
+                        ctx.arc(t.head.x, t.head.y - headRadius*0.2, headRadius*1.05, Math.PI, 2*Math.PI);
+                        ctx.fill();
+                    } else if (hStyle === 'mohawk') {
+                        ctx.beginPath();
+                        ctx.moveTo(t.head.x - headRadius*0.4, t.head.y - headRadius*0.7);
+                        ctx.lineTo(t.head.x, t.head.y - headRadius*2.2);
+                        ctx.lineTo(t.head.x + headRadius*0.4, t.head.y - headRadius*0.7);
+                        ctx.fill();
+                    } else if (hStyle === 'afro') {
+                        ctx.beginPath();
+                        ctx.arc(t.head.x, t.head.y - headRadius*0.6, headRadius*1.5, 0, Math.PI*2);
+                        ctx.fill();
+                    } else if (hStyle === 'spiky') {
+                        ctx.beginPath();
+                        for(let s = -1; s <= 1; s += 0.5) {
+                            ctx.moveTo(t.head.x + s*headRadius*0.9, t.head.y - headRadius*0.4);
+                            ctx.lineTo(t.head.x + (s+0.2)*headRadius*1.2, t.head.y - headRadius*1.8);
+                            ctx.lineTo(t.head.x + (s+0.4)*headRadius*0.9, t.head.y - headRadius*0.4);
+                        }
+                        ctx.fill();
+                    }
+                }
+
+                // Front Leg
+                drawCapsule(t.pelvis, t.fKnee, 12, outline);
+                drawCapsule(t.pelvis, t.fKnee, 10, skin);
+                drawCapsule(t.fKnee, t.fFoot, 10, outline);
+                drawCapsule(t.fKnee, t.fFoot, 8, skin);
+
+                // Front Arm (Bicep mutated)
+                drawCapsule(t.neck, t.fHand, bicepW, outline);
+                drawCapsule(t.neck, t.fHand, bicepW - 2, skin);
+                // Front Glove
+                ctx.fillStyle = gloves;
+                ctx.beginPath(); ctx.arc(t.fHand.x, t.fHand.y, 12, 0, Math.PI*2); ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        // --- COMBAT LOGIC ---
+        const moves = {
+            jab:        { type: 'high', dmg: 5, cost: 10, dur: 250, reach: 65, active: [100, 200] },
+            cross:      { type: 'high', dmg: 12, cost: 18, dur: 400, reach: 75, active: [200, 300] },
+            body_jab:   { type: 'low',  dmg: 7, cost: 12, dur: 300, reach: 60, active: [150, 250] },
+            body_cross: { type: 'low',  dmg: 15, cost: 20, dur: 450, reach: 70, active: [250, 350] },
+            low_kick:   { type: 'low',  dmg: 10, cost: 15, dur: 350, reach: 60, active: [150, 250] },
+            high_kick:  { type: 'high', dmg: 20, cost: 30, dur: 600, reach: 70, active: [350, 450] }
+        };
+
+        function initiateAttack(fighter, moveName) {
+            const move = moves[moveName];
+            if (fighter.stats.stamina >= move.cost && fighter.state !== 'hit' && fighter.state !== 'ko') {
+                fighter.stats.stamina -= move.cost;
+                fighter.changeState(moveName, move.dur, move);
+                fighter.keyReleased = false; // Prevent holding button
+            }
+        }
+
+        let particles = [];
+        function createParticles(x, y) {
+            for(let i=0; i<5; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10 - 5,
+                    life: 1.0
+                });
+            }
+        }
+
+        function drawParticles(ctx) {
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+            for(let i=particles.length-1; i>=0; i--) {
+                let p = particles[i];
+                p.x += p.vx; p.y += p.vy;
+                p.life -= 0.05;
+                if(p.life <= 0) { particles.splice(i, 1); continue; }
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.life * 4, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        function checkCollisions() {
+            [pFighter, oFighter].forEach(attacker => {
+                if (attacker.currentMove && !attacker.hasHit) {
+                    const move = attacker.currentMove;
+                    const t = attacker.stateTimer;
+                    const elapsed = move.dur - t;
+
+                    // Check if attack is in active frames
+                    if (elapsed >= move.active[0] && elapsed <= move.active[1]) {
+                        const defender = (attacker === pFighter) ? oFighter : pFighter;
+                        
+                        // Calculate reach hitbox
+                        let reachStartX = attacker.x + (attacker.width/2);
+                        let reachEndX = reachStartX + (move.reach * attacker.facing);
+                        if (attacker.facing === -1) {
+                            let temp = reachStartX; reachStartX = reachEndX; reachEndX = temp;
+                        }
+
+                        const defStartX = defender.x;
+                        const defEndX = defender.x + defender.width;
+
+                        // Collision detected!
+                        if (reachStartX < defEndX && reachEndX > defStartX) {
+                            
+                            // DODGE I-FRAMES LOGIC
+                            // If defender is dodging, and in the first 300ms, they are invincible!
+                            let isDodged = false;
+                            if (defender.state === 'dodge' && (400 - defender.stateTimer) < 300) {
+                                isDodged = true;
+                            }
+
+                            attacker.hasHit = true;
+
+                            if (isDodged) {
+                                // Whiff completely
+                            } else {
+                                // Calculate Damage
+                                let dmg = move.dmg + (attacker.stats.power * 0.5);
+                                
+                                // Blocking logic
+                                if (defender.state === 'block') {
+                                    dmg -= defender.stats.defense;
+                                    dmg *= 0.3; // Block mitigates 70% damage
+                                } else {
+                                    dmg -= defender.stats.defense * 0.5;
+                                }
+                                if (dmg < 1) dmg = 1;
+
+                                defender.stats.hp -= dmg;
+                                defender.changeState('hit', 300);
+                                createParticles(reachEndX, defender.y + (defender.height / 2));
+                                
+                                // UI SHAKE
+                                canvas.classList.remove('shake-anim');
+                                void canvas.offsetWidth; // trigger reflow
+                                canvas.classList.add('shake-anim');
+
+                                // COMBO SYSTEM
+                                if (attacker === pFighter) {
+                                    pComboCount++; oComboCount = 0; lastHitTime = Date.now();
+                                } else {
+                                    oComboCount++; pComboCount = 0; lastHitTime = Date.now();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- GAME LOOP & AI ---
+        function gameLoop(timestamp) {
+            if (!state.inFight) return;
+            
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Combo Timeout
+            if (Date.now() - lastHitTime > 1500) { pComboCount = 0; oComboCount = 0; }
+
+            // PLAYER INPUT HANDLING (Only if not hit/ko)
+            if (pFighter.state !== 'hit' && pFighter.state !== 'ko') {
+                let moving = false;
+                
+                // Movement
+                if (keys.a && ['idle','walk','block'].includes(pFighter.state)) { 
+                    pFighter.vx = -pFighter.speed; pFighter.facing = -1; moving = true; 
+                }
+                if (keys.d && ['idle','walk','block'].includes(pFighter.state)) { 
+                    pFighter.vx = pFighter.speed; pFighter.facing = 1; moving = true; 
+                }
+                
+                // Jump
+                if (keys.w && pFighter.isGrounded && ['idle','walk'].includes(pFighter.state)) {
+                    pFighter.vy = -12;
+                }
+
+                // Dodge (Bob and Weave - fixed to allow while walking)
+                if (keys.s && pFighter.isGrounded && ['idle','walk'].includes(pFighter.state) && pFighter.keyReleased) {
+                    if (pFighter.stats.stamina >= 15) {
+                        pFighter.stats.stamina -= 15;
+                        pFighter.changeState('dodge', 400); // 400ms animation
+                        pFighter.keyReleased = false;
+                        pFighter.vx = pFighter.facing * -2; // Slight slide backwards
+                    }
+                }
+
+                // Block
+                if (keys.o && pFighter.isGrounded && ['idle','walk','block'].includes(pFighter.state)) {
+                    if (pFighter.state !== 'block') pFighter.changeState('block', 9999);
+                    pFighter.lastBlockTime = Date.now();
+                } else if (!keys.o && pFighter.state === 'block' && Date.now() - pFighter.lastBlockTime > 50) {
+                    pFighter.changeState('idle'); // Stop blocking when key released
+                }
+
+                // Attacks (With Shift modifiers)
+                if (pFighter.isGrounded && ['idle','walk'].includes(pFighter.state) && pFighter.keyReleased) {
+                    if (keys.u) initiateAttack(pFighter, keys.shift ? 'body_jab' : 'jab');
+                    if (keys.i) initiateAttack(pFighter, keys.shift ? 'body_cross' : 'cross');
+                    if (keys.j) initiateAttack(pFighter, 'low_kick');
+                    if (keys.k) initiateAttack(pFighter, 'high_kick');
+                }
+
+                if (moving && pFighter.state === 'idle') pFighter.changeState('walk', 9999);
+                if (!moving && pFighter.state === 'walk') pFighter.changeState('idle');
+            }
+
+            // AI LOGIC
+            if (oFighter.state !== 'hit' && oFighter.state !== 'ko') {
+                const dist = Math.abs(pFighter.x - oFighter.x);
+                oFighter.facing = (pFighter.x < oFighter.x) ? -1 : 1;
+
+                if (oFighter.state === 'block' && Date.now() - oFighter.lastBlockTime > 800) {
+                    oFighter.changeState('idle'); // Stop blocking eventually
+                }
+
+                if (dist > 120 && ['idle','walk'].includes(oFighter.state)) {
+                    // Move closer
+                    oFighter.vx = (pFighter.x > oFighter.x) ? oFighter.speed : -oFighter.speed;
+                    if (oFighter.state === 'idle') oFighter.changeState('walk', 9999);
+                } else {
+                    // In range
+                    if (oFighter.state === 'walk') oFighter.changeState('idle');
+                    
+                    if (oFighter.state === 'idle') {
+                        const rand = Math.random();
+                        
+                        // Reactive dodge
+                        if (pFighter.state !== 'idle' && pFighter.state !== 'walk' && rand < 0.05 && oFighter.stats.stamina >= 15) {
+                            oFighter.stats.stamina -= 15;
+                            oFighter.changeState('dodge', 400);
+                            oFighter.vx = oFighter.facing * -2;
+                        } 
+                        // Random Attacks
+                        else if (rand < 0.02) initiateAttack(oFighter, 'jab');
+                        else if (rand < 0.04) initiateAttack(oFighter, 'cross');
+                        else if (rand < 0.05) initiateAttack(oFighter, 'body_jab');
+                        else if (rand < 0.06) initiateAttack(oFighter, 'body_cross');
+                        else if (rand < 0.07) initiateAttack(oFighter, 'low_kick');
+                        else if (rand < 0.08) initiateAttack(oFighter, 'high_kick');
+                        // Block
+                        else if (rand < 0.09 && pFighter.state !== 'idle') {
+                            oFighter.changeState('block', 9999);
+                            oFighter.lastBlockTime = Date.now();
+                        }
+                    }
+                }
+            }
+
+            // Update & Draw
+            pFighter.update(dt);
+            oFighter.update(dt);
+
+            checkCollisions();
+
+            pFighter.draw(ctx);
+            oFighter.draw(ctx);
+            drawParticles(ctx);
+
+            updateHUD();
+            checkKO();
+
+            if (state.inFight) {
+                gameLoopId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // --- UI UPDATES ---
+        function updateHUD() {
+            // Bars
+            document.getElementById('p-hp-bar').style.width = Math.max(0, (pFighter.stats.hp / pFighter.stats.maxHp) * 100) + '%';
+            document.getElementById('p-hp-text').textContent = `${Math.ceil(Math.max(0, pFighter.stats.hp))}/${pFighter.stats.maxHp}`;
+            document.getElementById('p-stamina-bar').style.width = Math.max(0, (pFighter.stats.stamina / pFighter.stats.maxStamina) * 100) + '%';
+            
+            document.getElementById('o-hp-bar').style.width = Math.max(0, (oFighter.stats.hp / oFighter.stats.maxHp) * 100) + '%';
+            document.getElementById('o-hp-text').textContent = `${Math.ceil(Math.max(0, oFighter.stats.hp))}/${oFighter.stats.maxHp}`;
+            document.getElementById('o-stamina-bar').style.width = Math.max(0, (oFighter.stats.stamina / oFighter.stats.maxStamina) * 100) + '%';
+
+            // Status Texts (Block / Dodge)
+            const updateStatus = (fighter, elId) => {
+                const el = document.getElementById(elId);
+                if (fighter.state === 'block') {
+                    el.textContent = 'BLOCKING'; el.style.opacity = 1; el.style.color = '#60a5fa';
+                } else if (fighter.state === 'dodge') {
+                    el.textContent = 'DODGED!'; el.style.opacity = 1; el.style.color = '#4ade80';
+                } else {
+                    el.style.opacity = 0;
+                }
+            };
+            updateStatus(pFighter, 'p-status');
+            updateStatus(oFighter, 'o-status');
+
+            // Combos
+            const pComboEl = document.getElementById('p-combo');
+            if (pComboCount >= 2) { pComboEl.textContent = `${pComboCount} HIT COMBO!`; pComboEl.style.opacity = 1; } 
+            else { pComboEl.style.opacity = 0; }
+            
+            const oComboEl = document.getElementById('o-combo');
+            if (oComboCount >= 2) { oComboEl.textContent = `${oComboCount} HIT COMBO!`; oComboEl.style.opacity = 1; } 
+            else { oComboEl.style.opacity = 0; }
+        }
+
+        function checkKO() {
+            if (pFighter.stats.hp <= 0 && pFighter.state !== 'ko') {
+                pFighter.changeState('ko', 99999);
+                endMatch(false);
+            }
+            if (oFighter.stats.hp <= 0 && oFighter.state !== 'ko') {
+                oFighter.changeState('ko', 99999);
+                endMatch(true);
+            }
+        }
+
+        function endMatch(playerWon) {
+            document.getElementById('ko-overlay').classList.remove('opacity-0');
+            
+            setTimeout(() => {
+                state.inFight = false;
+                cancelAnimationFrame(gameLoopId);
+                
+                document.getElementById('combat-screen').classList.add('hidden');
+                document.getElementById('ko-overlay').classList.add('opacity-0');
+
+                if (playerWon) {
+                    const opp = opponents[playerStats.rank];
+                    playerStats.money += opp.reward;
+                    playerStats.rank++;
+                    document.getElementById('result-title').textContent = "YOU WON!";
+                    document.getElementById('result-title').className = "text-5xl font-black mb-4 text-green-500";
+                    document.getElementById('result-money').textContent = opp.reward;
+                    
+                    if (playerStats.rank >= opponents.length) {
+                        document.getElementById('goat-screen').classList.remove('hidden');
+                    } else {
+                        document.getElementById('result-screen').classList.remove('hidden');
+                    }
+                } else {
+                    const opp = opponents[playerStats.rank];
+                    const loserBonus = Math.floor(opp.reward * 0.25); // Give 25% of reward for losing
+                    playerStats.money += loserBonus;
+                    
+                    document.getElementById('result-title').textContent = "KNOCKED OUT";
+                    document.getElementById('result-title').className = "text-5xl font-black mb-4 text-red-500";
+                    document.getElementById('result-money').textContent = loserBonus;
+                    document.getElementById('result-screen').classList.remove('hidden');
+                }
+            }, 2500); // Wait 2.5 seconds to watch KO animation before showing results
+        }
+
+        // --- MENU LOGIC ---
+        function updateGymUI() {
+            document.getElementById('player-money').textContent = playerStats.money;
+            
+            if (playerStats.rank < opponents.length) {
+                const opp = opponents[playerStats.rank];
+                document.getElementById('opp-name').textContent = opp.name;
+                document.getElementById('opp-desc').textContent = opp.desc;
+                
+                document.getElementById('opp-hp').textContent = opp.stats.maxHp;
+                document.getElementById('opp-pow').textContent = opp.stats.power;
+                document.getElementById('opp-def').textContent = opp.stats.defense;
+                document.getElementById('opp-stam').textContent = opp.stats.maxStamina;
+                
+                document.getElementById('my-hp').textContent = playerStats.maxHp;
+                document.getElementById('my-pow').textContent = playerStats.power;
+                document.getElementById('my-def').textContent = playerStats.defense;
+                document.getElementById('my-stam').textContent = playerStats.maxStamina;
+            }
+
+            const container = document.getElementById('upgrades-container');
+            container.innerHTML = '';
+            
+            for (const [key, data] of Object.entries(upgradeCosts)) {
+                const level = upgradeLevels[key];
+                const cost = Math.floor(data.base * Math.pow(data.mult, level));
+                const canAfford = playerStats.money >= cost;
+                
+                const btn = document.createElement('button');
+                btn.className = `w-full p-3 rounded flex justify-between items-center transition ${canAfford ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`;
+                btn.innerHTML = `
+                    <div class="text-left">
+                        <div class="font-bold">${data.name} <span class="text-xs bg-gray-900 px-1 rounded ml-1">Lvl ${level}</span></div>
+                        <div class="text-xs opacity-75">+${data.val} per upgrade</div>
+                    </div>
+                    <div class="font-bold">$${cost}</div>
+                `;
+                
+                if (canAfford) {
+                    btn.onclick = () => {
+                        playerStats.money -= cost;
+                        upgradeLevels[key]++;
+                        playerStats[key] += data.val;
+                        updateGymUI();
+                    };
+                }
+                container.appendChild(btn);
+            }
+        }
+
+        document.getElementById('btn-fight').addEventListener('click', () => {
+            document.getElementById('hub-screen').classList.add('hidden');
+            document.getElementById('combat-screen').classList.remove('hidden');
+            document.getElementById('combat-screen').classList.add('flex');
+            
+            const oppData = opponents[playerStats.rank];
+            document.getElementById('hud-opp-name').textContent = oppData.name.toUpperCase();
+            
+            pFighter = new Fighter(100, 0, 1, playerStats, true);
+            oFighter = new Fighter(700, 0, -1, oppData.stats, false);
+            
+            pComboCount = 0; oComboCount = 0;
+            
+            state.inFight = true;
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        });
+
+        document.getElementById('btn-continue').addEventListener('click', () => {
+            document.getElementById('result-screen').classList.add('hidden');
+            document.getElementById('hub-screen').classList.remove('hidden');
+            updateGymUI();
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            location.reload();
+        });
+
+        // --- CUSTOMIZATION LISTENERS ---
+        ['height', 'weight', 'skin', 'shorts', 'hairstyle', 'haircolor'].forEach(key => {
+            document.getElementById(`custom-${key}`).addEventListener('input', (e) => {
+                let val = e.target.value;
+                if (key === 'height' || key === 'weight') {
+                    val = parseFloat(val);
+                    document.getElementById(`val-${key}`).textContent = val.toFixed(2) + 'x';
+                    playerStats.appearance[key === 'height' ? 'h' : 'w'] = val;
+                } else {
+                    playerStats.appearance[key] = val;
+                }
+            });
+        });
+
+        // Initialize Gym on load
+        updateGymUI();
+    </script>
+</body>
+</html>
