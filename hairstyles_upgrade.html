@@ -1285,45 +1285,7 @@ ctx.restore();
                         } else {
                             playerStats[key] += data.val;
                         }
-                        updateGymUI();
-                    };
-                }
-                container.appendChild(btn);
-            }
-        }
-
-        document.getElementById('btn-fight').addEventListener('click', () => {
-            document.getElementById('hub-screen').classList.add('hidden');
-            document.getElementById('combat-screen').classList.remove('hidden');
-            document.getElementById('combat-screen').classList.add('flex');
-            
-            const oppData = opponents[playerStats.rank];
-            document.getElementById('hud-opp-name').textContent = oppData.name.toUpperCase();
-            
-            pFighter = new Fighter(100, 0, 1, playerStats, true);
-            oFighter = new Fighter(700, 0, -1, oppData.stats, false);
-            
-            pComboCount = 0; oComboCount = 0;
-            
-            state.inFight = true;
-            cancelAnimationFrame(updatePreview);
-            lastTime = performance.now();
-            requestAnimationFrame(gameLoop);
-        });
-
-        document.getElementById('btn-continue').addEventListener('click', () => {
-            document.getElementById('result-screen').classList.add('hidden');
-            document.getElementById('hub-screen').classList.remove('hidden');
-            requestAnimationFrame(updatePreview);
-            updateGymUI();
-        });
-
-        document.getElementById('btn-restart').addEventListener('click', () => {
-            location.reload();
-        });
-
-
-        // --- CHARACTER PREVIEW LOGIC ---
+                        // --- CHARACTER PREVIEW LOGIC ---
         const previewCanvas = document.getElementById('preview-canvas');
         const previewCtx = previewCanvas.getContext('2d');
         let previewFighter = null;
@@ -1368,7 +1330,46 @@ ctx.restore();
 
         // Start preview loop
         requestAnimationFrame(updatePreview);
-// --- CUSTOMIZATION LISTENERS ---
+
+        updateGymUI();
+                    };
+                }
+                container.appendChild(btn);
+            }
+        }
+
+        document.getElementById('btn-fight').addEventListener('click', () => {
+            document.getElementById('hub-screen').classList.add('hidden');
+            document.getElementById('combat-screen').classList.remove('hidden');
+            document.getElementById('combat-screen').classList.add('flex');
+
+            const oppData = opponents[playerStats.rank];
+            document.getElementById('hud-opp-name').textContent = oppData.name.toUpperCase();
+
+            pFighter = new Fighter(100, 0, 1, playerStats, true);
+            oFighter = new Fighter(700, 0, -1, oppData.stats, false);
+
+            pComboCount = 0; oComboCount = 0;
+
+            state.inFight = true;
+            cancelAnimationFrame(updatePreview);
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        });
+
+        document.getElementById('btn-continue').addEventListener('click', () => {
+            document.getElementById('result-screen').classList.add('hidden');
+            document.getElementById('hub-screen').classList.remove('hidden');
+            requestAnimationFrame(updatePreview);
+            updateGymUI();
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            location.reload();
+        });
+
+
+        // --- CUSTOMIZATION LISTENERS ---
         ['height', 'weight', 'skin', 'shorts', 'hairstyle', 'haircolor', 'facialhair', 'tattoos', 'glovetype'].forEach(key => {
             document.getElementById(`custom-${key}`).addEventListener('input', (e) => {
                 let val = e.target.value;
