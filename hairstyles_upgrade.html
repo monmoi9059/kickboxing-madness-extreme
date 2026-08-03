@@ -475,11 +475,22 @@
                 // Translate: Center X, align Y so feet hit the floor perfectly regardless of Height scale
                 ctx.translate(this.x + this.width/2, (this.y + this.height) - (90 * h));
                 
-                // --- MUSCLE MUTATION MATH (Capped for aesthetic limits) ---
-                let chestW = Math.min(45, 20 + (this.stats.maxHp / 15)) * w;
-                let bicepW = Math.min(22, 8 + (this.stats.power / 4)) * w;
-                let trapsW = Math.min(25, 10 + (this.stats.defense / 2.5)) * w;
-                let hasAbs = this.stats.maxStamina >= 120;
+                // --- MUSCLE MUTATION MATH ---
+                // The higher the stat goes over base (100 HP, 10 Pwr, 5 Def), the more visually massive they get
+                let chestBase = 26; // Base width
+                let hpBonus = Math.max(0, this.stats.maxHp - 100) * 0.15; // 20hp upgrade = +3 width
+                let chestW = (chestBase + hpBonus) * w;
+
+                let bicepBase = 10;
+                let powerBonus = Math.max(0, this.stats.power - 10) * 1.5; // 3 pwr upgrade = +4.5 width
+                let bicepW = (bicepBase + powerBonus) * w;
+
+                let trapsBase = 12;
+                let defBonus = Math.max(0, this.stats.defense - 5) * 1.5; // 2 def upgrade = +3 width
+                let trapsW = (trapsBase + defBonus) * w;
+
+                // Abs show if maxStamina is upgraded at least once (base is 100, upgrade is +15)
+                let hasAbs = this.stats.maxStamina >= 115;
                 
                 // Color theme
                 const skin = app.skin; 
@@ -545,53 +556,63 @@
                     attackIntensity = Math.sin(p * Math.PI);
 
                     if (this.state === 'jab') {
-                        targetT.fHand = {x: 75*f*w, y: -65*h};
-                        targetT.bHand = {x: 5*f*w, y: -65*h};
-                        targetT.head.x += 15*f; targetT.pelvis.x += 10*f;
+                        targetT.fHand = {x: 85*f*w, y: -65*h};
+                        targetT.bHand = {x: 0, y: -60*h}; // Guard high
+                        targetT.head.x += 10*f;
+                        targetT.pelvis.x += 5*f; targetT.pelvis.y -= 5*h; // Plant down slightly
+                        targetT.fFoot.x += 5*f; // Slight step
+                        targetT.bKnee.x += 10*f; // Slight rotation
                     } else if (this.state === 'cross') {
-                        targetT.bHand = {x: 85*f*w, y: -60*h};
+                        targetT.bHand = {x: 95*f*w, y: -60*h};
                         targetT.fHand = {x: -15*f*w, y: -65*h}; // Pull back guard
-                        targetT.pelvis.x += 20*f; targetT.head.x += 20*f;
+                        targetT.head.x += 20*f; targetT.head.y -= 5*h;
+                        targetT.pelvis.x += 25*f; // Deep rotation
+                        targetT.bKnee.x += 25*f; // Back hip turns over
+                        targetT.bFoot.x += 15*f; targetT.bFoot.y -= 5*h; // Pivot on ball of back foot
+                        targetT.fKnee.x -= 10*f; // Front hip pulls back
                     } else if (this.state === 'body_jab') {
-                        targetT.pelvis.y += 30*h; targetT.head.y += 30*h;
-                        targetT.fHand = {x: 65*f*w, y: -5*h};
-                        targetT.bHand = {x: 5*f*w, y: -45*h};
+                        targetT.pelvis.y += 35*h; targetT.head.y += 35*h;
+                        targetT.head.x += 15*f;
+                        targetT.fHand = {x: 75*f*w, y: -5*h};
+                        targetT.bHand = {x: 0, y: -45*h};
+                        targetT.fKnee.x += 15*f; targetT.fFoot.x += 10*f;
                     } else if (this.state === 'body_cross') {
-                        targetT.pelvis.y += 30*h; targetT.head.y += 30*h;
-                        targetT.bHand = {x: 75*f*w, y: -5*h};
+                        targetT.pelvis.y += 35*h; targetT.head.y += 35*h;
+                        targetT.pelvis.x += 25*f; targetT.head.x += 20*f;
+                        targetT.bHand = {x: 85*f*w, y: -5*h};
                         targetT.fHand = {x: -15*f*w, y: -45*h};
-                        targetT.pelvis.x += 20*f;
+                        targetT.bKnee.x += 20*f; targetT.bFoot.x += 10*f; targetT.bFoot.y -= 5*h; // Pivot
                     } else if (this.state === 'low_kick') {
                         targetT.bFoot = {x: 65*f*w, y: 65*h};
-                        targetT.pelvis.x -= 15*f; targetT.head.x -= 20*f;
-                        targetT.fHand.x -= 15*f; targetT.bHand.x += 25*f; // Arm swing for balance
+                        targetT.pelvis.x -= 15*f; targetT.head.x -= 20*f; targetT.head.y += 5*h;
+                        targetT.fHand.x -= 25*f; targetT.bHand.x += 35*f; // Big arm swing for torque
+                        targetT.fFoot.x -= 10*f; // Plant foot steps out
                     } else if (this.state === 'high_kick') {
-                        targetT.bFoot = {x: 65*f*w, y: -70*h};
-                        targetT.pelvis.x -= 25*f; targetT.head.x -= 30*f; targetT.head.y += 10*h; // Lean back
-                        targetT.fHand.x -= 20*f; targetT.bHand.x += 35*f;
+                        targetT.bFoot = {x: 75*f*w, y: -75*h};
+                        targetT.pelvis.x -= 25*f; targetT.head.x -= 35*f; targetT.head.y += 15*h; // Deep lean back
+                        targetT.fHand.x -= 30*f; targetT.bHand.x += 45*f; // Whip arms
+                        targetT.fFoot.x -= 15*f; // Plant foot steps out
                     } else if (this.state === 'superman_punch') {
                         // Launch forward, back leg kicks out behind, back hand strikes
-                        targetT.pelvis.y -= 30*h; targetT.head.y -= 25*h; targetT.head.x += 30*f;
-                        targetT.bHand = {x: 100*f*w, y: -55*h};
-                        targetT.fHand = {x: -20*f*w, y: -55*h};
-                        targetT.bFoot = {x: -60*f*w, y: -10*h}; // Kick back
+                        targetT.pelvis.y -= 30*h; targetT.head.y -= 25*h; targetT.head.x += 35*f;
+                        targetT.bHand = {x: 105*f*w, y: -55*h};
+                        targetT.fHand = {x: -25*f*w, y: -55*h};
+                        targetT.bFoot = {x: -70*f*w, y: -15*h}; // Kick back hard
                         targetT.fFoot = {x: -10*f*w, y: 50*h}; // Tucked
                     } else if (this.state === 'flying_knee') {
                         // Leap, drive front knee up
-                        targetT.pelvis.y -= 40*h; targetT.head.y -= 35*h; targetT.head.x -= 10*f;
-                        targetT.bHand = {x: -10*f*w, y: -70*h}; targetT.fHand = {x: 30*f*w, y: -20*h}; // Guard up/down
-                        targetT.bFoot = {x: -20*f*w, y: 60*h};
-                        targetT.fFoot = {x: 50*f*w, y: 0}; // Knee forward
-                        // NOTE: Because we use drawDetailedLimb to calc knees, we just pull the foot up and forward
+                        targetT.pelvis.y -= 45*h; targetT.head.y -= 40*h; targetT.head.x -= 15*f;
+                        targetT.bHand = {x: -15*f*w, y: -70*h}; targetT.fHand = {x: 35*f*w, y: -20*h};
+                        targetT.bFoot = {x: -25*f*w, y: 60*h};
+                        targetT.fFoot = {x: 60*f*w, y: 0}; // Knee forward driven high
                     } else if (this.state === 'flying_kick') {
                         // Switch kick mid-air
-                        targetT.pelvis.y -= 30*h; targetT.pelvis.x += 20*f;
-                        targetT.head.y -= 20*h; targetT.head.x -= 20*f;
-                        targetT.fFoot = {x: -30*f*w, y: 40*h}; // Tuck front
-                        targetT.bFoot = {x: 100*f*w, y: -40*h}; // Extend back
-                        targetT.fHand.x -= 30*f; targetT.bHand.x += 40*f; // Arm swing
-                    }
-                    } else if (this.state === 'block') {
+                        targetT.pelvis.y -= 35*h; targetT.pelvis.x += 25*f;
+                        targetT.head.y -= 25*h; targetT.head.x -= 25*f;
+                        targetT.fFoot = {x: -35*f*w, y: 40*h}; // Tuck front
+                        targetT.bFoot = {x: 110*f*w, y: -45*h}; // Extend back fully
+                        targetT.fHand.x -= 35*f; targetT.bHand.x += 45*f; // Arm swing
+                    }} else if (this.state === 'block') {
                     targetT.fHand = {x: 15*f*w, y: -65*h};
                     targetT.bHand = {x: 0, y: -70*h};
                     targetT.head.x -= 12*f; targetT.head.y += 8*h;
@@ -802,14 +823,15 @@
                 drawDetailedLimb(t.pelvis, t.bFoot, f, legLength, 12, outline, skin);
 
                 // Torso (Traps and Chest mutated)
+                let hipW = Math.max(20, chestW * 0.85); // Hips scale slightly with chest so you don't look like a dorito
                 ctx.fillStyle = skin;
                 ctx.strokeStyle = outline;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.moveTo(t.neck.x - trapsW, t.neck.y); // Traps left
                 ctx.lineTo(t.neck.x + trapsW, t.neck.y); // Traps right
-                ctx.lineTo(t.pelvis.x + chestW/2, t.pelvis.y); // Hip right
-                ctx.lineTo(t.pelvis.x - chestW/2, t.pelvis.y); // Hip left
+                ctx.lineTo(t.pelvis.x + hipW/2, t.pelvis.y); // Hip right
+                ctx.lineTo(t.pelvis.x - hipW/2, t.pelvis.y); // Hip left
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
 
@@ -844,10 +866,10 @@
                 // Shorts
                 ctx.fillStyle = shorts;
                 ctx.beginPath();
-                ctx.moveTo(t.pelvis.x - chestW/2 - 2, t.pelvis.y - 10*h);
-                ctx.lineTo(t.pelvis.x + chestW/2 + 2, t.pelvis.y - 10*h);
-                ctx.lineTo(t.pelvis.x + chestW/2, t.pelvis.y + 20*h);
-                ctx.lineTo(t.pelvis.x - chestW/2, t.pelvis.y + 20*h);
+                ctx.moveTo(t.pelvis.x - hipW/2 - 2, t.pelvis.y - 10*h);
+                ctx.lineTo(t.pelvis.x + hipW/2 + 2, t.pelvis.y - 10*h);
+                ctx.lineTo(t.pelvis.x + hipW/2, t.pelvis.y + 20*h);
+                ctx.lineTo(t.pelvis.x - hipW/2, t.pelvis.y + 20*h);
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
 
