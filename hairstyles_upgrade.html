@@ -37,8 +37,16 @@
             <!-- Locker Room (Customization) -->
             <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col justify-between">
                 <div>
+
                     <h2 class="text-2xl font-bold mb-4">Locker Room</h2>
+
+                    <!-- Preview Canvas -->
+                    <div class="w-full h-48 bg-gray-900 border border-gray-700 rounded-lg mb-4 overflow-hidden relative">
+                        <canvas id="preview-canvas" width="300" height="200" class="w-full h-full block"></canvas>
+                    </div>
+
                     <div class="space-y-4">
+
                         <div>
                             <label class="text-sm text-gray-400 flex justify-between">Height <span id="val-height" class="font-bold text-white">1.00x</span></label>
                             <input type="range" id="custom-height" min="0.8" max="1.3" step="0.05" value="1" class="w-full cursor-pointer accent-blue-500">
@@ -1298,6 +1306,7 @@ ctx.restore();
             pComboCount = 0; oComboCount = 0;
             
             state.inFight = true;
+            cancelAnimationFrame(updatePreview);
             lastTime = performance.now();
             requestAnimationFrame(gameLoop);
         });
@@ -1305,6 +1314,7 @@ ctx.restore();
         document.getElementById('btn-continue').addEventListener('click', () => {
             document.getElementById('result-screen').classList.add('hidden');
             document.getElementById('hub-screen').classList.remove('hidden');
+            requestAnimationFrame(updatePreview);
             updateGymUI();
         });
 
@@ -1312,7 +1322,53 @@ ctx.restore();
             location.reload();
         });
 
-        // --- CUSTOMIZATION LISTENERS ---
+
+        // --- CHARACTER PREVIEW LOGIC ---
+        const previewCanvas = document.getElementById('preview-canvas');
+        const previewCtx = previewCanvas.getContext('2d');
+        let previewFighter = null;
+
+        function updatePreview() {
+            // Create a dummy fighter for the preview
+            if (!previewFighter) {
+                previewFighter = new Fighter(150, 0, 1, playerStats, true);
+                previewFighter.state = 'idle';
+            }
+
+            // Sync stats
+            previewFighter.stats.appearance = JSON.parse(JSON.stringify(playerStats.appearance));
+            previewFighter.width = 60 * (playerStats.appearance.h || 1);
+            previewFighter.height = 180 * (playerStats.appearance.h || 1);
+            previewFighter.limbMod = playerStats.appearance.limbLengthMod || 0;
+
+            // Clear and draw
+            previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+
+            // Center the fighter in the preview canvas
+            previewCtx.save();
+            // Scale down slightly to fit the small canvas
+            previewCtx.scale(0.8, 0.8);
+            // Center X, align Y to bottom
+            let targetX = (previewCanvas.width / 0.8) / 2 - (previewFighter.width / 2);
+            let targetY = (previewCanvas.height / 0.8) - previewFighter.height + 40;
+
+            previewFighter.x = targetX;
+            previewFighter.y = targetY;
+
+            // Animate
+            previewFighter.animTime = performance.now();
+
+            previewFighter.draw(previewCtx);
+            previewCtx.restore();
+
+            if (!state.inFight) {
+                requestAnimationFrame(updatePreview);
+            }
+        }
+
+        // Start preview loop
+        requestAnimationFrame(updatePreview);
+// --- CUSTOMIZATION LISTENERS ---
         ['height', 'weight', 'skin', 'shorts', 'hairstyle', 'haircolor', 'facialhair', 'tattoos', 'glovetype'].forEach(key => {
             document.getElementById(`custom-${key}`).addEventListener('input', (e) => {
                 let val = e.target.value;
