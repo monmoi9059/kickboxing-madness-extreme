@@ -252,7 +252,7 @@
             hp: 100, maxHp: 100,
             power: 10,
             defense: 5,
-            stamina: 100, maxStamina: 100, staminaRegen: 15,
+            stamina: 100, maxStamina: 100, staminaRegen: 15, speedBonus: 0,
             money: 0, rank: 0,
             appearance: { h: 1.0, w: 1.0, skin: '#e2e8f0', shorts: '#3b82f6', gloves: '#ef4444', hairstyle: 'short', haircolor: '#000000' }
         };
@@ -263,10 +263,11 @@
             defense: { base: 40, mult: 1.4, name: "Defense (Traps Size)", val: 2 },
             maxStamina: { base: 40, mult: 1.3, name: "Max Stamina (Abs)", val: 15 },
             staminaRegen: { base: 50, mult: 1.5, name: "Cardio", val: 3 },
+            speedBonus: { base: 75, mult: 1.6, name: "Movement Speed (Leg Muscles)", val: 0.5 },
             botchedSurgery: { base: 200, mult: 2.0, name: "Botched Limb Lengthening (-Stamina)", val: 1 }
         };
 
-        let upgradeLevels = { maxHp: 0, power: 0, defense: 0, maxStamina: 0, staminaRegen: 0, botchedSurgery: 0 };
+        let upgradeLevels = { maxHp: 0, power: 0, defense: 0, maxStamina: 0, staminaRegen: 0, speedBonus: 0, botchedSurgery: 0 };
 
         const opponents = [
             { name: "Glass Joe", desc: "A weak local amateur.", stats: { maxHp: 80, power: 5, defense: 2, maxStamina: 80, staminaRegen: 10, appearance: { h: 0.85, w: 0.8, skin: '#fcd34d', shorts: '#ef4444', gloves: '#3b82f6', hairstyle: 'short', haircolor: '#fbbf24' } }, reward: 100 },
@@ -389,7 +390,7 @@
 
                 // Speed is inversely proportional to weight. Heavier = slower. Taller = slightly slower to get moving.
                 // Base speed is 4.
-                this.speed = 4 * (1 / wScale) * (1 / ((hScale - 1) * 0.5 + 1));
+                this.speed = (4 * (1 / wScale) * (1 / ((hScale - 1) * 0.5 + 1))) + (stats.speedBonus || 0);
 
                 // Power is amplified by weight.
                 this.stats.power = this.stats.power * wScale;
