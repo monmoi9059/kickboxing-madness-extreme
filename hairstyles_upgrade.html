@@ -252,7 +252,7 @@
             hp: 100, maxHp: 100,
             power: 10,
             defense: 5,
-            stamina: 100, maxStamina: 100, staminaRegen: 15,
+            stamina: 100, maxStamina: 100, staminaRegen: 15, speedBonus: 0,
             money: 0, rank: 0,
             appearance: { h: 1.0, w: 1.0, skin: '#e2e8f0', shorts: '#3b82f6', gloves: '#ef4444', hairstyle: 'short', haircolor: '#000000' }
         };
@@ -263,10 +263,11 @@
             defense: { base: 40, mult: 1.4, name: "Defense (Traps Size)", val: 2 },
             maxStamina: { base: 40, mult: 1.3, name: "Max Stamina (Abs)", val: 15 },
             staminaRegen: { base: 50, mult: 1.5, name: "Cardio", val: 3 },
+            speedBonus: { base: 75, mult: 1.6, name: "Movement Speed (Leg Muscles)", val: 0.5 },
             botchedSurgery: { base: 200, mult: 2.0, name: "Botched Limb Lengthening (-Stamina)", val: 1 }
         };
 
-        let upgradeLevels = { maxHp: 0, power: 0, defense: 0, maxStamina: 0, staminaRegen: 0, botchedSurgery: 0 };
+        let upgradeLevels = { maxHp: 0, power: 0, defense: 0, maxStamina: 0, staminaRegen: 0, speedBonus: 0, botchedSurgery: 0 };
 
         const opponents = [
             { name: "Glass Joe", desc: "A weak local amateur.", stats: { maxHp: 80, power: 5, defense: 2, maxStamina: 80, staminaRegen: 10, appearance: { h: 0.85, w: 0.8, skin: '#fcd34d', shorts: '#ef4444', gloves: '#3b82f6', hairstyle: 'short', haircolor: '#fbbf24' } }, reward: 100 },
@@ -389,7 +390,7 @@
 
                 // Speed is inversely proportional to weight. Heavier = slower. Taller = slightly slower to get moving.
                 // Base speed is 4.
-                this.speed = 4 * (1 / wScale) * (1 / ((hScale - 1) * 0.5 + 1));
+                this.speed = (4 * (1 / wScale) * (1 / ((hScale - 1) * 0.5 + 1))) + (stats.speedBonus || 0);
 
                 // Power is amplified by weight.
                 this.stats.power = this.stats.power * wScale;
@@ -660,6 +661,22 @@
                     targetT.bFoot = {x: 40*f, y: 90};
                     targetT.fKnee = {x: 50*f, y: 85};
                     targetT.bKnee = {x: 20*f, y: 85};
+                }
+
+                // Dynamically extend attack visuals based on limbMod so it matches hitbox reach and prevents bunching
+                if (isAttack && this.limbMod > 0) {
+                    let ext = this.limbMod;
+
+                    // Hands/feet go further out
+                    if (this.state === 'jab' || this.state === 'body_jab') targetT.fHand.x += ext * f;
+                    if (this.state === 'cross' || this.state === 'body_cross') targetT.bHand.x += ext * f;
+                    if (this.state === 'low_kick' || this.state === 'high_kick' || this.state === 'flying_kick') {
+                        targetT.bFoot.x += ext * f;
+                        targetT.pelvis.y -= ext * 0.3; // Lift torso to allow for longer leg without scrunching
+                        targetT.head.y -= ext * 0.3;
+                    }
+                    if (this.state === 'superman_punch') targetT.bHand.x += ext * f;
+                    if (this.state === 'flying_knee') targetT.fFoot.x += ext * f;
                 }
 
                 // Blend Attack Extension smoothly
@@ -1387,11 +1404,7 @@ ctx.restore();
                     document.getElementById('result-title').className = "text-5xl font-black mb-4 text-green-500";
                     document.getElementById('result-money').textContent = opp.reward;
                     
-                    if (playerStats.rank >= opponents.length) {
-                        document.getElementById('goat-screen').classList.remove('hidden');
-                    } else {
-                        document.getElementById('result-screen').classList.remove('hidden');
-                    }
+                    document.getElementById('result-screen').classList.remove('hidden');
                 } else {
                     const opp = currentOpponentChoices[selectedOpponentIndex];
                     const loserBonus = Math.floor(opp.reward * 0.25); // Give 25% of reward for losing
@@ -1460,21 +1473,23 @@ ctx.restore();
         function updateGymUI() {
             document.getElementById('player-money').textContent = playerStats.money;
             
-            if (playerStats.rank < opponents.length) {
+            if (true) {
                 if (currentOpponentChoices.length === 0) {
-                    let baseOpp = opponents[playerStats.rank];
+                    let baseIndex = playerStats.rank % opponents.length;
+                    let cycleMulti = 1 + Math.floor(playerStats.rank / opponents.length) * 0.5;
+                    let baseOpp = opponents[baseIndex];
                     const numChoices = Math.floor(Math.random() * 3) + 3; // 3 to 5
                     for (let i = 0; i < numChoices; i++) {
                         const diff = 0.7 + (Math.random() * 0.6);
                         let newOpp = JSON.parse(JSON.stringify(baseOpp));
                         const diffName = diff < 0.9 ? "Weak " : (diff > 1.1 ? "Elite " : "");
-                        newOpp.name = `${diffName}${newOpp.name}`;
-                        newOpp.stats.maxHp = Math.floor(newOpp.stats.maxHp * diff);
-                        newOpp.stats.power = Math.floor(newOpp.stats.power * diff);
-                        newOpp.stats.defense = Math.floor(newOpp.stats.defense * diff);
-                        newOpp.stats.maxStamina = Math.floor(newOpp.stats.maxStamina * diff);
-                        newOpp.stats.staminaRegen = Math.floor(newOpp.stats.staminaRegen * diff);
-                        newOpp.reward = Math.floor(newOpp.reward * diff);
+                        newOpp.name = `${diffName}${newOpp.name} ${playerStats.rank >= opponents.length ? "V" + (Math.floor(playerStats.rank / opponents.length) + 1) : ""}`.trim();
+                        newOpp.stats.maxHp = Math.floor(newOpp.stats.maxHp * diff * cycleMulti);
+                        newOpp.stats.power = Math.floor(newOpp.stats.power * diff * cycleMulti);
+                        newOpp.stats.defense = Math.floor(newOpp.stats.defense * diff * cycleMulti);
+                        newOpp.stats.maxStamina = Math.floor(newOpp.stats.maxStamina * diff * cycleMulti);
+                        newOpp.stats.staminaRegen = Math.floor(newOpp.stats.staminaRegen * diff * (1 + (cycleMulti-1)*0.1));
+                        newOpp.reward = Math.floor(newOpp.reward * diff * cycleMulti);
                         newOpp.difficultyMult = diff;
                         currentOpponentChoices.push(newOpp);
                     }
@@ -1508,8 +1523,9 @@ ctx.restore();
                         upgradeLevels[key]++;
 
                         if (key === 'botchedSurgery') {
-                            // Increases limb length drastically, reduces stamina
+                            // Increases limb length drastically, reduces stamina, increases height
                             playerStats.appearance.limbLengthMod = (playerStats.appearance.limbLengthMod || 0) + 20;
+                            playerStats.appearance.h = (playerStats.appearance.h || 1) + 0.05; // Make player taller
                             playerStats.maxStamina = Math.max(10, playerStats.maxStamina - 20); // Penalty
                             if (playerStats.stamina > playerStats.maxStamina) playerStats.stamina = playerStats.maxStamina;
                         } else {
