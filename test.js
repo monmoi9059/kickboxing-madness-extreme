@@ -39,6 +39,55 @@
         let lastHitTime = 0;
         const state = { inFight: false };
 
+        // --- CHARACTER PREVIEW LOGIC ---
+        const previewCanvas = document.getElementById('preview-canvas');
+        const previewCtx = previewCanvas.getContext('2d');
+        let previewFighter = null;
+
+        function updatePreview() {
+            // Create a dummy fighter for the preview
+            if (!previewFighter) {
+                previewFighter = new Fighter(150, 0, 1, playerStats, true);
+                previewFighter.state = 'idle';
+            }
+
+            // Sync stats
+            previewFighter.stats.appearance = JSON.parse(JSON.stringify(playerStats.appearance));
+            previewFighter.width = 60 * (playerStats.appearance.h || 1);
+            previewFighter.height = 180 * (playerStats.appearance.h || 1);
+            previewFighter.limbMod = playerStats.appearance.limbLengthMod || 0;
+
+            // Clear and draw
+            previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+
+            // Center the fighter in the preview canvas
+            previewCtx.save();
+            // Scale down slightly to fit the small canvas
+            previewCtx.scale(0.8, 0.8);
+            // Center X, align Y to bottom
+            let targetX = (previewCanvas.width / 0.8) / 2 - (previewFighter.width / 2);
+            let targetY = (previewCanvas.height / 0.8) - previewFighter.height + 40;
+
+            previewFighter.x = targetX;
+            previewFighter.y = targetY;
+
+            // Animate
+            previewFighter.animTime = performance.now();
+
+            previewFighter.draw(previewCtx);
+            previewCtx.restore();
+
+            if (!state.inFight) {
+                requestAnimationFrame(updatePreview);
+            }
+        }
+
+        // Start preview loop
+        requestAnimationFrame(updatePreview);
+
+
+
+
         // --- INPUT HANDLING (Fixed the S key and Boolean flipping) ---
         window.addEventListener('keydown', (e) => {
             if(!state.inFight) return;
@@ -1040,51 +1089,6 @@ ctx.restore();
                         } else {
                             playerStats[key] += data.val;
                         }
-                        // --- CHARACTER PREVIEW LOGIC ---
-        const previewCanvas = document.getElementById('preview-canvas');
-        const previewCtx = previewCanvas.getContext('2d');
-        let previewFighter = null;
-
-        function updatePreview() {
-            // Create a dummy fighter for the preview
-            if (!previewFighter) {
-                previewFighter = new Fighter(150, 0, 1, playerStats, true);
-                previewFighter.state = 'idle';
-            }
-
-            // Sync stats
-            previewFighter.stats.appearance = JSON.parse(JSON.stringify(playerStats.appearance));
-            previewFighter.width = 60 * (playerStats.appearance.h || 1);
-            previewFighter.height = 180 * (playerStats.appearance.h || 1);
-            previewFighter.limbMod = playerStats.appearance.limbLengthMod || 0;
-
-            // Clear and draw
-            previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-
-            // Center the fighter in the preview canvas
-            previewCtx.save();
-            // Scale down slightly to fit the small canvas
-            previewCtx.scale(0.8, 0.8);
-            // Center X, align Y to bottom
-            let targetX = (previewCanvas.width / 0.8) / 2 - (previewFighter.width / 2);
-            let targetY = (previewCanvas.height / 0.8) - previewFighter.height + 40;
-
-            previewFighter.x = targetX;
-            previewFighter.y = targetY;
-
-            // Animate
-            previewFighter.animTime = performance.now();
-
-            previewFighter.draw(previewCtx);
-            previewCtx.restore();
-
-            if (!state.inFight) {
-                requestAnimationFrame(updatePreview);
-            }
-        }
-
-        // Start preview loop
-        requestAnimationFrame(updatePreview);
 
         updateGymUI();
                     };
@@ -1125,13 +1129,29 @@ ctx.restore();
 
 
         // --- CUSTOMIZATION LISTENERS ---
+        function formatHeight(multiplier) {
+            let inches = Math.round(72 * multiplier); // Base 6'0"
+            let feet = Math.floor(inches / 12);
+            let remInches = inches % 12;
+            return `${feet}'${remInches}"`;
+        }
+
+        function formatWeight(multiplier) {
+            let lbs = Math.round(180 * multiplier); // Base 180 lbs
+            return `${lbs} lbs`;
+        }
+
         ['height', 'weight', 'skin', 'shorts', 'hairstyle', 'haircolor', 'facialhair', 'tattoos', 'glovetype'].forEach(key => {
             document.getElementById(`custom-${key}`).addEventListener('input', (e) => {
                 let val = e.target.value;
-                if (key === 'height' || key === 'weight') {
+                if (key === 'height') {
                     val = parseFloat(val);
-                    document.getElementById(`val-${key}`).textContent = val.toFixed(2) + 'x';
-                    playerStats.appearance[key === 'height' ? 'h' : 'w'] = val;
+                    document.getElementById(`val-${key}`).textContent = formatHeight(val);
+                    playerStats.appearance.h = val;
+                } else if (key === 'weight') {
+                    val = parseFloat(val);
+                    document.getElementById(`val-${key}`).textContent = formatWeight(val);
+                    playerStats.appearance.w = val;
                 } else {
                     playerStats.appearance[key] = val;
                 }
