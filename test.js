@@ -1,248 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kickboxing Career</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #111827; color: white; overflow-x: hidden; }
-        #game-canvas { background: linear-gradient(to bottom, #1f2937, #111827); border-bottom: 4px solid #374151; }
-        .hp-bar-fill { transition: width 0.2s ease-out; }
-        .stamina-bar-fill { transition: width 0.1s linear; }
-        
-        /* Particle animations */
-        .particle { position: absolute; pointer-events: none; border-radius: 50%; }
-        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-30px) scale(1.5); } }
-        
-        /* UI animations */
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
-        .shake-anim { animation: shake 0.2s ease-in-out; }
-        
-        /* Combo Text */
-        .combo-text { font-weight: 900; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
-    </style>
-</head>
-<body class="min-h-screen flex flex-col items-center select-none">
 
-    <!-- Main Menu / Gym Hub -->
-    <div id="hub-screen" class="w-full max-w-6xl p-6 flex flex-col gap-6">
-        <div class="text-center">
-            <h1 class="text-5xl font-black text-red-500 uppercase tracking-wider mb-2">Road to GOAT</h1>
-            <p class="text-gray-400">Train your fighter, climb the ranks.</p>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Locker Room (Customization) -->
-            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col justify-between">
-                <div>
-
-                    <h2 class="text-2xl font-bold mb-4">Locker Room</h2>
-
-                    <!-- Preview Canvas -->
-                    <div class="w-full h-48 bg-gray-900 border border-gray-700 rounded-lg mb-4 overflow-hidden relative">
-                        <canvas id="preview-canvas" width="300" height="200" class="w-full h-full block"></canvas>
-                    </div>
-
-                    <div class="space-y-4">
-
-                        <div>
-                            <label class="text-sm text-gray-400 flex justify-between">Height <span id="val-height" class="font-bold text-white">1.00x</span></label>
-                            <input type="range" id="custom-height" min="0.8" max="1.3" step="0.05" value="1" class="w-full cursor-pointer accent-blue-500">
-                        </div>
-                        <div>
-                            <label class="text-sm text-gray-400 flex justify-between">Weight <span id="val-weight" class="font-bold text-white">1.00x</span></label>
-                            <input type="range" id="custom-weight" min="0.7" max="1.5" step="0.05" value="1" class="w-full cursor-pointer accent-blue-500">
-                        </div>
-                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
-                            <label class="text-sm text-gray-300 font-bold">Skin Tone</label>
-                            <input type="color" id="custom-skin" value="#e2e8f0" class="h-8 w-12 bg-transparent border-0 cursor-pointer rounded">
-                        </div>
-                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
-                            <label class="text-sm text-gray-300 font-bold">Trunks Color</label>
-                            <input type="color" id="custom-shorts" value="#3b82f6" class="h-8 w-12 bg-transparent border-0 cursor-pointer rounded">
-                        </div>
-                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
-                            <label class="text-sm text-gray-300 font-bold">Hair Style</label>
-                            <select id="custom-hairstyle" class="bg-gray-800 text-white text-sm rounded border border-gray-600 p-1 cursor-pointer">
-                                <option value="short">Short</option>
-                                <option value="bald">Bald</option>
-                                <option value="mohawk">Mohawk</option>
-                                <option value="afro">Afro</option>
-                                <option value="spiky">Spiky</option>
-                            </select>
-                        </div>
-                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
-                            <label class="text-sm text-gray-300 font-bold">Facial Hair</label>
-                            <select id="custom-facialhair" class="bg-gray-800 text-white text-sm rounded border border-gray-600 p-1 cursor-pointer">
-                                <option value="none">None</option>
-                                <option value="beard">Beard</option>
-                                <option value="mustache">Mustache</option>
-                                <option value="goatee">Goatee</option>
-                            </select>
-                        </div>
-                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
-                            <label class="text-sm text-gray-300 font-bold">Tattoos</label>
-                            <select id="custom-tattoos" class="bg-gray-800 text-white text-sm rounded border border-gray-600 p-1 cursor-pointer">
-                                <option value="none">None</option>
-                                <option value="tribal_band">Tribal Band</option>
-                                <option value="chest_piece">Chest Piece</option>
-                            </select>
-                        </div>
-                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
-                            <label class="text-sm text-gray-300 font-bold">Gloves</label>
-                            <select id="custom-glovetype" class="bg-gray-800 text-white text-sm rounded border border-gray-600 p-1 cursor-pointer">
-                                <option value="boxing">Boxing</option>
-                                <option value="mma">MMA</option>
-                            </select>
-                        </div>
-
-                        <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
-                            <label class="text-sm text-gray-300 font-bold">Hair Color</label>
-                            <input type="color" id="custom-haircolor" value="#000000" class="h-8 w-12 bg-transparent border-0 cursor-pointer rounded">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col">
-                <div class="flex justify-between items-end mb-4">
-                    <h2 class="text-2xl font-bold">Gym</h2>
-                    <div class="text-green-400 font-bold text-xl">$<span id="player-money">0</span></div>
-                </div>
-                <div id="upgrades-container" class="space-y-3 overflow-y-auto pr-2 flex-grow">
-                    <!-- Upgrades injected here via JS -->
-                </div>
-            </div>
-
-            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col justify-between">
-                <div>
-                    <h2 class="text-2xl font-bold mb-4 text-red-500">Next Bout</h2>
-                    <div class="bg-gray-900 p-4 rounded-lg border border-gray-700 mb-4 text-center">
-                        <div id="opp-name" class="text-3xl font-black text-white mb-1 uppercase tracking-widest">Opponent</div>
-                        <div id="opp-desc" class="text-gray-400 text-sm italic">Description</div>
-                    </div>
-                    
-                    <div class="bg-gray-900 p-4 rounded-lg border border-gray-700">
-                        <div class="grid grid-cols-3 gap-y-3 text-sm text-center items-center">
-                            <div class="text-gray-300 font-black">YOU</div>
-                            <div class="text-gray-600 text-xs font-bold uppercase tracking-widest">Vs</div>
-                            <div class="text-gray-300 font-black">OPP</div>
-
-                            <div id="my-hp" class="text-lg font-bold text-green-400">0</div>
-                            <div class="text-gray-500 uppercase text-xs">Health</div>
-                            <div id="opp-hp" class="text-lg font-bold text-green-400">0</div>
-
-                            <div id="my-stam" class="text-lg font-bold text-yellow-400">0</div>
-                            <div class="text-gray-500 uppercase text-xs">Stamina</div>
-                            <div id="opp-stam" class="text-lg font-bold text-yellow-400">0</div>
-
-                            <div id="my-pow" class="text-lg font-bold text-red-400">0</div>
-                            <div class="text-gray-500 uppercase text-xs">Power</div>
-                            <div id="opp-pow" class="text-lg font-bold text-red-400">0</div>
-
-                            <div id="my-def" class="text-lg font-bold text-blue-400">0</div>
-                            <div class="text-gray-500 uppercase text-xs">Defense</div>
-                            <div id="opp-def" class="text-lg font-bold text-blue-400">0</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <button id="btn-fight" class="w-full mt-6 bg-red-600 hover:bg-red-500 text-white font-bold py-4 rounded-lg text-xl transition transform hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(220,38,38,0.5)]">
-                    ENTER THE RING
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Combat Screen -->
-    <div id="combat-screen" class="hidden w-full max-w-5xl p-4 flex-col relative">
-        <!-- HUD -->
-        <div class="flex justify-between items-end mb-2 px-4">
-            <!-- Player HUD -->
-            <div class="w-2/5">
-                <div class="flex justify-between mb-1">
-                    <span class="font-bold text-lg">YOU</span>
-                    <span id="p-status" class="text-sm font-bold opacity-0 transition-opacity">BLOCKING</span>
-                </div>
-                <div class="h-6 bg-gray-800 border-2 border-gray-600 rounded-full overflow-hidden mb-1 relative">
-                    <div id="p-hp-bar" class="h-full bg-green-500 hp-bar-fill w-full"></div>
-                    <div id="p-hp-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">100/100</div>
-                </div>
-                <div class="h-3 bg-gray-800 border border-gray-600 rounded-full overflow-hidden">
-                    <div id="p-stamina-bar" class="h-full bg-yellow-400 stamina-bar-fill w-full"></div>
-                </div>
-                <div id="p-combo" class="combo-text text-yellow-400 text-2xl mt-2 opacity-0 transition-opacity">2 HIT COMBO!</div>
-            </div>
-
-            <div class="text-3xl font-black text-gray-600 pb-4">VS</div>
-
-            <!-- Opponent HUD -->
-            <div class="w-2/5 text-right">
-                <div class="flex justify-between mb-1">
-                    <span id="o-status" class="text-sm font-bold opacity-0 transition-opacity">BLOCKING</span>
-                    <span id="hud-opp-name" class="font-bold text-lg text-red-400">OPPONENT</span>
-                </div>
-                <div class="h-6 bg-gray-800 border-2 border-gray-600 rounded-full overflow-hidden mb-1 relative flex justify-end">
-                    <div id="o-hp-bar" class="h-full bg-red-500 hp-bar-fill w-full"></div>
-                    <div id="o-hp-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">100/100</div>
-                </div>
-                <div class="h-3 bg-gray-800 border border-gray-600 rounded-full overflow-hidden flex justify-end">
-                    <div id="o-stamina-bar" class="h-full bg-yellow-400 stamina-bar-fill w-full"></div>
-                </div>
-                <div id="o-combo" class="combo-text text-red-400 text-2xl mt-2 opacity-0 transition-opacity">2 HIT COMBO!</div>
-            </div>
-        </div>
-
-        <!-- Canvas Container -->
-        <div class="relative w-full rounded-lg overflow-hidden shadow-2xl border-2 border-gray-700 bg-gray-900" style="aspect-ratio: 16/7;">
-            <canvas id="game-canvas" width="1000" height="437" class="w-full h-full block"></canvas>
-            
-            <!-- KO Text Overlay -->
-            <div id="ko-overlay" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-500">
-                <h1 class="text-8xl font-black text-red-600 combo-text tracking-widest italic transform -skew-x-12 scale-150">K.O.</h1>
-            </div>
-        </div>
-
-        <!-- Controls Guide -->
-        <div class="bg-gray-800 p-3 mt-4 rounded-lg flex flex-wrap justify-between items-center text-sm border border-gray-700 shadow-md">
-            <div class="text-gray-300 w-full md:w-auto mb-2 md:mb-0">
-                <span class="text-gray-500 mr-2">MOVE/JUMP:</span> <strong class="bg-gray-700 px-2 py-1 rounded text-white mr-1">W A D</strong>
-                <span class="text-gray-500 mx-2">| DODGE:</span> <strong class="bg-gray-700 px-2 py-1 rounded text-green-400">S</strong>
-            </div>
-            <div class="text-gray-300 w-full md:w-auto">
-                <span class="text-gray-500 mr-2">ATTACK:</span> <strong class="bg-gray-700 px-2 py-1 rounded text-red-400 mr-1">U I J K</strong> 
-                <span class="text-gray-400 text-xs mx-1">(Hold <strong class="text-white">Shift</strong> for Body)</span>
-                <span class="text-gray-500 mx-2">| BLOCK:</span> <strong class="bg-gray-700 px-2 py-1 rounded text-blue-400">O</strong>
-            </div>
-        </div>
-    </div>
-
-    <!-- Result Screen (No absolute positioning to prevent blank screen bug) -->
-    <div id="result-screen" class="hidden w-full max-w-2xl p-8 mt-10 bg-gray-800 rounded-2xl border-4 border-gray-700 text-center shadow-2xl">
-        <h1 id="result-title" class="text-5xl font-black mb-4">MATCH OVER</h1>
-        <p id="result-desc" class="text-xl text-gray-300 mb-6">You fought hard.</p>
-        
-        <div class="bg-gray-900 p-6 rounded-xl mb-8 border border-gray-700">
-            <div class="text-lg text-gray-400 mb-2">Prize Money Earned</div>
-            <div class="text-5xl font-bold text-green-400">$<span id="result-money">0</span></div>
-        </div>
-        
-        <button id="btn-continue" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-lg text-xl transition transform hover:scale-105">
-            RETURN TO GYM
-        </button>
-    </div>
-
-    <div id="goat-screen" class="hidden w-full max-w-3xl p-8 mt-10 bg-yellow-600 rounded-2xl text-center shadow-[0_0_50px_rgba(202,138,4,0.6)]">
-        <h1 class="text-6xl font-black text-white mb-6 drop-shadow-lg">UNDISPUTED GOAT</h1>
-        <p class="text-2xl text-yellow-100 mb-8">You have defeated every challenger and claimed the ultimate title.</p>
-        <button id="btn-restart" class="bg-white text-yellow-700 font-bold py-4 px-8 rounded-full text-xl hover:bg-gray-100 transition transform hover:scale-110 shadow-lg">
-            START NEW CAREER
-        </button>
-    </div>
-
-    <script>
         // --- GAME DATA & STATE ---
         let playerStats = {
             hp: 100, maxHp: 100,
@@ -283,61 +39,12 @@
         let lastHitTime = 0;
         const state = { inFight: false };
 
-        // --- CHARACTER PREVIEW LOGIC ---
-        const previewCanvas = document.getElementById('preview-canvas');
-        const previewCtx = previewCanvas.getContext('2d');
-        let previewFighter = null;
-
-        function updatePreview() {
-            // Create a dummy fighter for the preview
-            if (!previewFighter) {
-                previewFighter = new Fighter(150, 0, 1, playerStats, true);
-                previewFighter.state = 'idle';
-            }
-
-            // Sync stats
-            previewFighter.stats.appearance = JSON.parse(JSON.stringify(playerStats.appearance));
-            previewFighter.width = 60 * (playerStats.appearance.h || 1);
-            previewFighter.height = 180 * (playerStats.appearance.h || 1);
-            previewFighter.limbMod = playerStats.appearance.limbLengthMod || 0;
-
-            // Clear and draw
-            previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-
-            // Center the fighter in the preview canvas
-            previewCtx.save();
-            // Scale down slightly to fit the small canvas
-            previewCtx.scale(0.8, 0.8);
-            // Center X, align Y to bottom
-            let targetX = (previewCanvas.width / 0.8) / 2 - (previewFighter.width / 2);
-            let targetY = (previewCanvas.height / 0.8) - previewFighter.height + 40;
-
-            previewFighter.x = targetX;
-            previewFighter.y = targetY;
-
-            // Animate
-            previewFighter.animTime = performance.now();
-
-            previewFighter.draw(previewCtx);
-            previewCtx.restore();
-
-            if (!state.inFight) {
-                requestAnimationFrame(updatePreview);
-            }
-        }
-
-        // Start preview loop
-        requestAnimationFrame(updatePreview);
-
-
-
-
         // --- INPUT HANDLING (Fixed the S key and Boolean flipping) ---
         window.addEventListener('keydown', (e) => {
             if(!state.inFight) return;
             let key = e.key.toLowerCase();
             if (e.key === 'Shift') key = 'shift';
-            
+
             if (keys.hasOwnProperty(key)) {
                 keys[key] = true; // MUST BE TRUE
             }
@@ -346,7 +53,7 @@
         window.addEventListener('keyup', (e) => {
             let key = e.key.toLowerCase();
             if (e.key === 'Shift') key = 'shift';
-            
+
             if (keys.hasOwnProperty(key)) {
                 keys[key] = false; // MUST BE FALSE
                 if (['u','i','j','k','s'].includes(key) && pFighter) {
@@ -370,7 +77,7 @@
                 this.stats.hp = this.stats.maxHp;
                 this.stats.stamina = this.stats.maxStamina;
                 this.isPlayer = isPlayer;
-                
+
                 const app = this.stats.appearance || { h: 1, w: 1 };
                 const hScale = app.h || 1;
                 const wScale = app.w || 1;
@@ -391,12 +98,12 @@
                 this.vx = 0;
                 this.vy = 0;
                 this.isGrounded = false;
-                
+
                 this.state = 'idle'; // idle, walk, hit, ko, block, dodge, attack states...
                 this.stateTimer = 0;
                 this.animTime = 0;
                 this.keyReleased = true;
-                
+
                 this.currentMove = null;
                 this.hasHit = false;
                 this.lastBlockTime = 0;
@@ -474,19 +181,19 @@
 
                 // Translate: Center X, align Y so feet hit the floor perfectly regardless of Height scale
                 ctx.translate(this.x + this.width/2, (this.y + this.height) - (90 * h));
-                
+
                 // --- MUSCLE MUTATION MATH (Capped for aesthetic limits) ---
                 let chestW = Math.min(45, 20 + (this.stats.maxHp / 15)) * w;
                 let bicepW = Math.min(22, 8 + (this.stats.power / 4)) * w;
                 let trapsW = Math.min(25, 10 + (this.stats.defense / 2.5)) * w;
                 let hasAbs = this.stats.maxStamina >= 120;
-                
+
                 // Color theme
-                const skin = app.skin; 
+                const skin = app.skin;
                 const outline = 'rgba(0,0,0,0.6)'; // Universal dark outline
-                const shorts = app.shorts; 
-                const gloves = app.gloves; 
-                
+                const shorts = app.shorts;
+                const gloves = app.gloves;
+
                 const f = this.facing; // Facing multiplier
 
                 // --- FLUID ANIMATION ENGINE ---
@@ -494,7 +201,7 @@
                 let breathe = Math.sin(this.animTime * 0.004);
                 let bounce = breathe * 2.5;
                 let chestExpand = breathe * 2;
-                
+
                 // 1. Base Idle Pose (with natural breathing bounce and active stance)
                 let baseT = {
                     head: {x: 5*f*w, y: -70*h + bounce},
@@ -615,7 +322,7 @@
                         targetT.head.x += 15*f*w; // Slip outside
                     }
                 } else if (this.state === 'hit') {
-                    let p = (300 - this.stateTimer) / 300; 
+                    let p = (300 - this.stateTimer) / 300;
                     let hitIntensity = Math.pow(1 - p, 3); // Snaps back violently, recovers slowly
                     targetT.head.x -= 40*f*w * hitIntensity;
                     targetT.head.y -= 20*h * hitIntensity;
@@ -644,7 +351,7 @@
                 }
 
                 // Smoothly Lerp Actual Current Joints to the Target Joints every frame
-                let smoothFactor = this.state === 'ko' ? 0.08 : 0.35; 
+                let smoothFactor = this.state === 'ko' ? 0.08 : 0.35;
                 for (let joint in this.joints) {
                     this.joints[joint].x = lerp(this.joints[joint].x, targetT[joint].x, smoothFactor);
                     this.joints[joint].y = lerp(this.joints[joint].y, targetT[joint].y, smoothFactor);
@@ -665,7 +372,7 @@
                 };
 
                 // --- RENDER ORDER (Back to Front) ---
-                
+
                 const fHair = app.facialhair || 'none';
                 const tattoo = app.tattoos || 'none';
                 const gType = app.glovetype || 'boxing';
@@ -797,7 +504,7 @@
                     ctx.arc(t.bHand.x, t.bHand.y, 12, 0, Math.PI*2); // Boxing
                 }
                 ctx.fill(); ctx.stroke();
-                
+
                 // Back Leg
                 drawDetailedLimb(t.pelvis, t.bFoot, f, legLength, 12, outline, skin);
 
@@ -857,7 +564,7 @@
                 const headRadius = 16 * ((h+w)/2);
                 ctx.arc(t.head.x, t.head.y, headRadius, 0, Math.PI*2);
                 ctx.fill(); ctx.stroke();
-                
+
                 // Hair Rendering
                 const hStyle = app.hairstyle || 'bald';
                 if (hStyle !== 'bald') {
@@ -993,7 +700,7 @@ ctx.restore();
                     // Check if attack is in active frames
                     if (elapsed >= move.active[0] && elapsed <= move.active[1]) {
                         const defender = (attacker === pFighter) ? oFighter : pFighter;
-                        
+
                         // Calculate reach hitbox
                         const appH = attacker.stats.appearance ? (attacker.stats.appearance.h || 1) : 1;
                         let reachStartX = attacker.x + (attacker.width/2);
@@ -1009,7 +716,7 @@ ctx.restore();
 
                         // Collision detected!
                         if (reachStartX < defEndX && reachEndX > defStartX) {
-                            
+
                             // DODGE I-FRAMES LOGIC
                             // If defender is dodging, and in the first 300ms, they are invincible!
                             let isDodged = false;
@@ -1030,7 +737,7 @@ ctx.restore();
                             } else {
                                 // Calculate Damage
                                 let dmg = move.dmg + (attacker.stats.power * 0.5);
-                                
+
                                 // Blocking logic
                                 if (defender.state === 'block' || defender.state === 'low_block') {
                                     dmg -= defender.stats.defense;
@@ -1050,7 +757,7 @@ ctx.restore();
                                 defender.stats.hp -= dmg;
                                 defender.changeState('hit', 300);
                                 createParticles(reachEndX, defender.y + (defender.height / 2));
-                                
+
                                 // UI SHAKE
                                 canvas.classList.remove('shake-anim');
                                 void canvas.offsetWidth; // trigger reflow
@@ -1072,7 +779,7 @@ ctx.restore();
         // --- GAME LOOP & AI ---
         function gameLoop(timestamp) {
             if (!state.inFight) return;
-            
+
             const dt = timestamp - lastTime;
             lastTime = timestamp;
 
@@ -1084,15 +791,15 @@ ctx.restore();
             // PLAYER INPUT HANDLING (Only if not hit/ko)
             if (pFighter.state !== 'hit' && pFighter.state !== 'ko') {
                 let moving = false;
-                
+
                 // Movement
-                if (keys.a && ['idle','walk','block'].includes(pFighter.state)) { 
-                    pFighter.vx = -pFighter.speed; pFighter.facing = -1; moving = true; 
+                if (keys.a && ['idle','walk','block'].includes(pFighter.state)) {
+                    pFighter.vx = -pFighter.speed; pFighter.facing = -1; moving = true;
                 }
-                if (keys.d && ['idle','walk','block'].includes(pFighter.state)) { 
-                    pFighter.vx = pFighter.speed; pFighter.facing = 1; moving = true; 
+                if (keys.d && ['idle','walk','block'].includes(pFighter.state)) {
+                    pFighter.vx = pFighter.speed; pFighter.facing = 1; moving = true;
                 }
-                
+
                 // Jump
                 if (keys.w && pFighter.isGrounded && ['idle','walk'].includes(pFighter.state)) {
                     pFighter.vy = -12;
@@ -1156,16 +863,16 @@ ctx.restore();
                 } else {
                     // In range
                     if (oFighter.state === 'walk') oFighter.changeState('idle');
-                    
+
                     if (oFighter.state === 'idle') {
                         const rand = Math.random();
-                        
+
                         // Reactive dodge
                         if (pFighter.state !== 'idle' && pFighter.state !== 'walk' && rand < 0.05 && oFighter.stats.stamina >= 15) {
                             oFighter.stats.stamina -= 15;
                             oFighter.changeState('dodge', 400);
                             oFighter.vx = oFighter.facing * -2;
-                        } 
+                        }
                         // Random Attacks
                         else if (rand < 0.02) initiateAttack(oFighter, 'jab');
                         else if (rand < 0.04) initiateAttack(oFighter, 'cross');
@@ -1206,7 +913,7 @@ ctx.restore();
             document.getElementById('p-hp-bar').style.width = Math.max(0, (pFighter.stats.hp / pFighter.stats.maxHp) * 100) + '%';
             document.getElementById('p-hp-text').textContent = `${Math.ceil(Math.max(0, pFighter.stats.hp))}/${pFighter.stats.maxHp}`;
             document.getElementById('p-stamina-bar').style.width = Math.max(0, (pFighter.stats.stamina / pFighter.stats.maxStamina) * 100) + '%';
-            
+
             document.getElementById('o-hp-bar').style.width = Math.max(0, (oFighter.stats.hp / oFighter.stats.maxHp) * 100) + '%';
             document.getElementById('o-hp-text').textContent = `${Math.ceil(Math.max(0, oFighter.stats.hp))}/${oFighter.stats.maxHp}`;
             document.getElementById('o-stamina-bar').style.width = Math.max(0, (oFighter.stats.stamina / oFighter.stats.maxStamina) * 100) + '%';
@@ -1227,11 +934,11 @@ ctx.restore();
 
             // Combos
             const pComboEl = document.getElementById('p-combo');
-            if (pComboCount >= 2) { pComboEl.textContent = `${pComboCount} HIT COMBO!`; pComboEl.style.opacity = 1; } 
+            if (pComboCount >= 2) { pComboEl.textContent = `${pComboCount} HIT COMBO!`; pComboEl.style.opacity = 1; }
             else { pComboEl.style.opacity = 0; }
-            
+
             const oComboEl = document.getElementById('o-combo');
-            if (oComboCount >= 2) { oComboEl.textContent = `${oComboCount} HIT COMBO!`; oComboEl.style.opacity = 1; } 
+            if (oComboCount >= 2) { oComboEl.textContent = `${oComboCount} HIT COMBO!`; oComboEl.style.opacity = 1; }
             else { oComboEl.style.opacity = 0; }
         }
 
@@ -1248,11 +955,11 @@ ctx.restore();
 
         function endMatch(playerWon) {
             document.getElementById('ko-overlay').classList.remove('opacity-0');
-            
+
             setTimeout(() => {
                 state.inFight = false;
                 cancelAnimationFrame(gameLoopId);
-                
+
                 document.getElementById('combat-screen').classList.add('hidden');
                 document.getElementById('ko-overlay').classList.add('opacity-0');
 
@@ -1263,7 +970,7 @@ ctx.restore();
                     document.getElementById('result-title').textContent = "YOU WON!";
                     document.getElementById('result-title').className = "text-5xl font-black mb-4 text-green-500";
                     document.getElementById('result-money').textContent = opp.reward;
-                    
+
                     if (playerStats.rank >= opponents.length) {
                         document.getElementById('goat-screen').classList.remove('hidden');
                     } else {
@@ -1273,7 +980,7 @@ ctx.restore();
                     const opp = opponents[playerStats.rank];
                     const loserBonus = Math.floor(opp.reward * 0.25); // Give 25% of reward for losing
                     playerStats.money += loserBonus;
-                    
+
                     document.getElementById('result-title').textContent = "KNOCKED OUT";
                     document.getElementById('result-title').className = "text-5xl font-black mb-4 text-red-500";
                     document.getElementById('result-money').textContent = loserBonus;
@@ -1285,17 +992,17 @@ ctx.restore();
         // --- MENU LOGIC ---
         function updateGymUI() {
             document.getElementById('player-money').textContent = playerStats.money;
-            
+
             if (playerStats.rank < opponents.length) {
                 const opp = opponents[playerStats.rank];
                 document.getElementById('opp-name').textContent = opp.name;
                 document.getElementById('opp-desc').textContent = opp.desc;
-                
+
                 document.getElementById('opp-hp').textContent = opp.stats.maxHp;
                 document.getElementById('opp-pow').textContent = opp.stats.power;
                 document.getElementById('opp-def').textContent = opp.stats.defense;
                 document.getElementById('opp-stam').textContent = opp.stats.maxStamina;
-                
+
                 document.getElementById('my-hp').textContent = playerStats.maxHp;
                 document.getElementById('my-pow').textContent = playerStats.power;
                 document.getElementById('my-def').textContent = playerStats.defense;
@@ -1304,12 +1011,12 @@ ctx.restore();
 
             const container = document.getElementById('upgrades-container');
             container.innerHTML = '';
-            
+
             for (const [key, data] of Object.entries(upgradeCosts)) {
                 const level = upgradeLevels[key];
                 const cost = Math.floor(data.base * Math.pow(data.mult, level));
                 const canAfford = playerStats.money >= cost;
-                
+
                 const btn = document.createElement('button');
                 btn.className = `w-full p-3 rounded flex justify-between items-center transition ${canAfford ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`;
                 btn.innerHTML = `
@@ -1319,7 +1026,7 @@ ctx.restore();
                     </div>
                     <div class="font-bold">$${cost}</div>
                 `;
-                
+
                 if (canAfford) {
                     btn.onclick = () => {
                         playerStats.money -= cost;
@@ -1333,6 +1040,51 @@ ctx.restore();
                         } else {
                             playerStats[key] += data.val;
                         }
+                        // --- CHARACTER PREVIEW LOGIC ---
+        const previewCanvas = document.getElementById('preview-canvas');
+        const previewCtx = previewCanvas.getContext('2d');
+        let previewFighter = null;
+
+        function updatePreview() {
+            // Create a dummy fighter for the preview
+            if (!previewFighter) {
+                previewFighter = new Fighter(150, 0, 1, playerStats, true);
+                previewFighter.state = 'idle';
+            }
+
+            // Sync stats
+            previewFighter.stats.appearance = JSON.parse(JSON.stringify(playerStats.appearance));
+            previewFighter.width = 60 * (playerStats.appearance.h || 1);
+            previewFighter.height = 180 * (playerStats.appearance.h || 1);
+            previewFighter.limbMod = playerStats.appearance.limbLengthMod || 0;
+
+            // Clear and draw
+            previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+
+            // Center the fighter in the preview canvas
+            previewCtx.save();
+            // Scale down slightly to fit the small canvas
+            previewCtx.scale(0.8, 0.8);
+            // Center X, align Y to bottom
+            let targetX = (previewCanvas.width / 0.8) / 2 - (previewFighter.width / 2);
+            let targetY = (previewCanvas.height / 0.8) - previewFighter.height + 40;
+
+            previewFighter.x = targetX;
+            previewFighter.y = targetY;
+
+            // Animate
+            previewFighter.animTime = performance.now();
+
+            previewFighter.draw(previewCtx);
+            previewCtx.restore();
+
+            if (!state.inFight) {
+                requestAnimationFrame(updatePreview);
+            }
+        }
+
+        // Start preview loop
+        requestAnimationFrame(updatePreview);
 
         updateGymUI();
                     };
@@ -1408,6 +1160,3 @@ ctx.restore();
 // Initialize Gym on load
         updateGymUI();
         checkTraitLocks();
-    </script>
-</body>
-</html>
