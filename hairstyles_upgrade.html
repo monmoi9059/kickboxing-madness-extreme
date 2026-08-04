@@ -578,7 +578,8 @@
                     // Calculate animation progress (0 to 1)
                     let p = (this.currentMove.dur - this.stateTimer) / this.currentMove.dur;
                     // Sine wave creates natural ease-in / ease-out extension (0 -> 1 -> 0)
-                    attackIntensity = Math.sin(p * Math.PI);
+                    const animScale = this.isPowerAttack ? 1.0 : 0.6;
+                    attackIntensity = Math.sin(p * Math.PI) * animScale;
 
                     if (this.state === 'jab') {
                         targetT.fHand = {x: 85*f*w, y: -65*h};
@@ -1111,11 +1112,13 @@ ctx.restore();
             flying_kick:    { type: 'high', dmg: 30, cost: 45, dur: 800, reach: 100, active: [500, 650], isFlying: true }
         };
 
-        function initiateAttack(fighter, moveName) {
+        function initiateAttack(fighter, moveName, attackKey = null) {
             const move = moves[moveName];
-            if (fighter.stats.stamina >= move.cost && fighter.state !== 'hit' && fighter.state !== 'ko') {
-                fighter.stats.stamina -= move.cost;
+            const initialCost = move.cost * 0.5;
+            if (fighter.stats.stamina >= initialCost && fighter.state !== 'hit' && fighter.state !== 'ko') {
+                fighter.stats.stamina -= initialCost;
                 fighter.changeState(moveName, move.dur, move);
+                fighter.attackKey = attackKey;
                 fighter.keyReleased = false; // Prevent holding button
 
                 // Add forward momentum for flying moves
@@ -1220,6 +1223,7 @@ ctx.restore();
                             } else {
                                 // Calculate Damage
                                 let dmg = move.dmg + (attacker.stats.power * 0.5);
+                                if (!attacker.isPowerAttack) dmg *= 0.5;
                                 
                                 // Blocking logic
                                 if (defender.state === 'block' || defender.state === 'low_block') {
@@ -1315,15 +1319,15 @@ ctx.restore();
 
                 // Attacks (With Shift modifiers)
                 if (pFighter.isGrounded && ['idle','walk'].includes(pFighter.state) && pFighter.keyReleased) {
-                    if (keys.u) initiateAttack(pFighter, keys.shift ? 'body_jab' : 'jab');
-                    if (keys.i) initiateAttack(pFighter, keys.shift ? 'body_cross' : 'cross');
-                    if (keys.j) initiateAttack(pFighter, 'low_kick');
-                    if (keys.k) initiateAttack(pFighter, 'high_kick');
+                    if (keys.u) initiateAttack(pFighter, keys.shift ? 'body_jab' : 'jab', 'u');
+                    else if (keys.i) initiateAttack(pFighter, keys.shift ? 'body_cross' : 'cross', 'i');
+                    else if (keys.j) initiateAttack(pFighter, 'low_kick', 'j');
+                    else if (keys.k) initiateAttack(pFighter, 'high_kick', 'k');
                 } else if (!pFighter.isGrounded && pFighter.keyReleased) {
                     // Flying moves
-                    if (keys.i) initiateAttack(pFighter, 'superman_punch');
-                    if (keys.u || keys.j) initiateAttack(pFighter, 'flying_knee');
-                    if (keys.k) initiateAttack(pFighter, 'flying_kick');
+                    if (keys.i) initiateAttack(pFighter, 'superman_punch', 'i');
+                    else if (keys.u || keys.j) initiateAttack(pFighter, 'flying_knee', keys.u ? 'u' : 'j');
+                    else if (keys.k) initiateAttack(pFighter, 'flying_kick', 'k');
                 }
 
                 if (moving && pFighter.state === 'idle') pFighter.changeState('walk', 9999);
