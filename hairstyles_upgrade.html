@@ -71,6 +71,10 @@
                                 <option value="mohawk">Mohawk</option>
                                 <option value="afro">Afro</option>
                                 <option value="spiky">Spiky</option>
+                                <option value="dreadlocks">Dreadlocks</option>
+                                <option value="mullet">Mullet</option>
+                                <option value="pompadour">Pompadour</option>
+                                <option value="long">Long Hair</option>
                             </select>
                         </div>
                         <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
@@ -1075,42 +1079,110 @@
                 ctx.quadraticCurveTo(eyeX, eyeY - eyeH*2, eyeX + (f*eyeW*1.2), eyeY - eyeH*1.2);
                 ctx.stroke();
 
-                // Hair Rendering
+                // Hair Rendering with Simple Physics
                 const hStyle = app.hairstyle || 'bald';
                 if (hStyle !== 'bald') {
                     ctx.fillStyle = app.haircolor || '#000000';
+                    ctx.strokeStyle = app.haircolor || '#000000';
+
+                    // Simple physics variables derived from movement and state
+                    let sway = (this.vx || 0) * -2; // Moves opposite to velocity
+                    if (this.state === 'dodge') sway = f * -15; // Big sway on dodge
+                    if (this.state === 'hit') sway = f * 10;
+                    if (this.state === 'ko') sway = f * 25; // Fall back
+
+                    // Add bounce from breathing/idle
+                    let hairBounce = bounce * 0.5;
+
                     if (hStyle === 'short') {
                         ctx.beginPath();
                         let startA = f === 1 ? Math.PI*0.8 : Math.PI*0.2;
                         let endA = f === 1 ? Math.PI*2.1 : Math.PI*1.9;
-                        ctx.arc(t.head.x - (f * headRadius*0.1), t.head.y - headRadius*0.2, headRadius*1.05, startA, endA);
+                        ctx.arc(t.head.x - (f * hrX*0.1), t.head.y - hrY*0.2, hrX*1.05, startA, endA);
                         ctx.fill();
                     } else if (hStyle === 'mohawk') {
                         ctx.beginPath();
-                        ctx.moveTo(t.head.x + (f*headRadius*0.5), t.head.y - headRadius*0.8);
-                        ctx.quadraticCurveTo(t.head.x, t.head.y - headRadius*2.5, t.head.x - (f*headRadius*0.8), t.head.y - headRadius*0.2);
-                        ctx.quadraticCurveTo(t.head.x - (f*headRadius*0.4), t.head.y - headRadius*1.5, t.head.x + (f*headRadius*0.5), t.head.y - headRadius*0.8);
+                        ctx.moveTo(t.head.x + (f*hrX*0.5), t.head.y - hrY*0.8);
+                        // The tip of the mohawk sways
+                        let tipX = t.head.x + sway*0.5;
+                        ctx.quadraticCurveTo(t.head.x + sway*0.2, t.head.y - hrY*2.5, t.head.x - (f*hrX*0.8), t.head.y - hrY*0.2);
+                        ctx.quadraticCurveTo(t.head.x - (f*hrX*0.4), t.head.y - hrY*1.5, t.head.x + (f*hrX*0.5), t.head.y - hrY*0.8);
                         ctx.fill();
                     } else if (hStyle === 'afro') {
                         ctx.beginPath();
-                        ctx.arc(t.head.x - (f*headRadius*0.2), t.head.y - headRadius*0.6, headRadius*1.4, 0, Math.PI*2);
-                        // Add some bumpy texture to afro
+                        // Afro lags behind movement slightly (squash and stretch)
+                        let stretch = Math.abs(sway) * 0.5;
+                        ctx.ellipse(t.head.x - (f*hrX*0.2) + sway*0.2, t.head.y - hrY*0.6 + hairBounce,
+                                    hrX*1.4 + stretch, hrY*1.4 - stretch*0.5,
+                                    0, 0, Math.PI*2);
+                        // Bumpy texture
                         for(let i=0; i<8; i++) {
                             let angle = (i/8) * Math.PI*2;
-                            ctx.arc(t.head.x - (f*headRadius*0.2) + Math.cos(angle)*headRadius*1.2,
-                                    t.head.y - headRadius*0.6 + Math.sin(angle)*headRadius*1.2,
-                                    headRadius*0.4, 0, Math.PI*2);
+                            ctx.arc(t.head.x - (f*hrX*0.2) + sway*0.2 + Math.cos(angle)*hrX*1.2,
+                                    t.head.y - hrY*0.6 + hairBounce + Math.sin(angle)*hrY*1.2,
+                                    hrX*0.4, 0, Math.PI*2);
                         }
                         ctx.fill();
                     } else if (hStyle === 'spiky') {
                         ctx.beginPath();
                         for(let s = -0.5; s <= 1; s += 0.4) {
-                            let spikeX = t.head.x - (f * s * headRadius);
-                            let spikeTipX = spikeX - (f * headRadius * 0.6);
-                            ctx.moveTo(spikeX + headRadius*0.2, t.head.y - headRadius*0.6);
-                            ctx.quadraticCurveTo(spikeTipX + (f*headRadius*0.2), t.head.y - headRadius*1.4, spikeTipX, t.head.y - headRadius*1.9);
-                            ctx.quadraticCurveTo(spikeX, t.head.y - headRadius*1.0, spikeX - headRadius*0.2, t.head.y - headRadius*0.6);
+                            let spikeX = t.head.x - (f * s * hrX);
+                            let spikeTipX = spikeX - (f * hrX * 0.6) + sway;
+                            ctx.moveTo(spikeX + hrX*0.2, t.head.y - hrY*0.6);
+                            ctx.quadraticCurveTo(spikeTipX + (f*hrX*0.2), t.head.y - hrY*1.4, spikeTipX, t.head.y - hrY*1.9 + hairBounce);
+                            ctx.quadraticCurveTo(spikeX, t.head.y - hrY*1.0, spikeX - hrX*0.2, t.head.y - hrY*0.6);
                         }
+                        ctx.fill();
+                    } else if (hStyle === 'dreadlocks') {
+                        ctx.lineWidth = hrX * 0.3;
+                        ctx.lineCap = 'round';
+                        for(let i = -1; i <= 1.5; i += 0.5) {
+                            ctx.beginPath();
+                            let rootX = t.head.x - (f * i * hrX * 0.8);
+                            let rootY = t.head.y - hrY * 0.8;
+                            ctx.moveTo(rootX, rootY);
+                            // Dreads hang down and sway heavily
+                            let endX = rootX + sway * (1.5 + Math.random());
+                            let endY = rootY + hrY * 2.5 + hairBounce * 2;
+                            let cp1X = rootX + sway*0.5;
+                            let cp1Y = rootY + hrY;
+                            ctx.quadraticCurveTo(cp1X, cp1Y, endX, endY);
+                            ctx.stroke();
+                        }
+                    } else if (hStyle === 'mullet') {
+                        // Business in front
+                        ctx.beginPath();
+                        ctx.arc(t.head.x - (f * hrX*0.1), t.head.y - hrY*0.4, hrX*1.05, Math.PI*0.8, Math.PI*2.2);
+                        ctx.fill();
+                        // Party in back (swaying)
+                        ctx.beginPath();
+                        let backRootX = t.head.x - (f * hrX * 1.0);
+                        let backRootY = t.head.y - hrY * 0.2;
+                        ctx.moveTo(backRootX, backRootY);
+                        ctx.quadraticCurveTo(backRootX + sway*1.5, backRootY + hrY*1.5, backRootX - (f*hrX*0.5) + sway, backRootY + hrY*2.5);
+                        ctx.lineTo(t.head.x - (f * hrX * 0.5), t.head.y + hrY * 0.5);
+                        ctx.fill();
+                    } else if (hStyle === 'pompadour') {
+                        ctx.beginPath();
+                        // Big slicked back curve
+                        ctx.moveTo(t.head.x + (f*hrX*0.8), t.head.y - hrY*0.5);
+                        // Front swoop that bounces
+                        ctx.bezierCurveTo(t.head.x + (f*hrX*1.5) + sway*0.2, t.head.y - hrY*2.5 + hairBounce,
+                                          t.head.x - (f*hrX*0.5) + sway*0.5, t.head.y - hrY*2.5,
+                                          t.head.x - (f*hrX*1.2), t.head.y - hrY*0.2);
+                        // Back into the neck
+                        ctx.quadraticCurveTo(t.head.x - (f*hrX*0.8), t.head.y - hrY, t.head.x + (f*hrX*0.8), t.head.y - hrY*0.5);
+                        ctx.fill();
+                    } else if (hStyle === 'long') {
+                        ctx.beginPath();
+                        // Hair line
+                        ctx.moveTo(t.head.x + (f*hrX*0.5), t.head.y - hrY*0.8);
+                        // Flowing back and down
+                        ctx.quadraticCurveTo(t.head.x - (f*hrX) + sway*0.5, t.head.y - hrY,
+                                             t.head.x - (f*hrX*1.5) + sway*1.5, t.head.y + hrY*1.5 + hairBounce);
+                        // Bottom edge of hair
+                        ctx.quadraticCurveTo(t.head.x - (f*hrX) + sway, t.head.y + hrY*2,
+                                             t.head.x - (f*hrX*0.5), t.head.y + hrY);
                         ctx.fill();
                     }
                 }
@@ -1635,7 +1707,7 @@ ctx.restore();
                     const lNames = ["Joe", "Mike", "Pete", "Dave", "Steve", "Bob", "Ray", "Tyson", "Lee", "Ali", "Crusher", "Reaper", "Maniac", "Fist", "Hawk", "Wolf"];
                     const skins = ['#fcd34d', '#b45309', '#fca5a5', '#cbd5e1', '#111827', '#e2e8f0', '#8b5a2b', '#ffdead'];
                     const hairColors = ['#000000', '#fbbf24', '#dc2626', '#ffffff', '#451a03', '#9ca3af', '#f59e0b'];
-                    const hStyles = ['short', 'bald', 'mohawk', 'afro', 'spiky'];
+                    const hStyles = ['short', 'bald', 'mohawk', 'afro', 'spiky', 'dreadlocks', 'mullet', 'pompadour', 'long'];
                     const randColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
                     const descs = ["A tough challenger.", "Looking for a fight.", "A dangerous striker.", "Known for stamina.", "Has a strong chin.", "Quick on their feet.", "A rising star.", "Hard-hitting brawler.", "Technically sound fighter.", "Wild and unpredictable."];
 
