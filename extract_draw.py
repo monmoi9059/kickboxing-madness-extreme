@@ -1,6 +1,6 @@
 import sys
 
-with open('hairstyles_upgrade.html', 'r') as f:
+with open('EFLTG.html', 'r') as f:
     content = f.read()
 
 start = content.find("            draw(ctx) {")

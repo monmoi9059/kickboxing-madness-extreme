@@ -1,6 +1,6 @@
 import re
 
-content = open('hairstyles_upgrade.html').read()
+content = open('EFLTG.html').read()
 if "this.stats.power += (this.stats.deltoidSize || 0)" in content:
     print("Combat logic correctly implemented.")
 else:
