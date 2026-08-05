@@ -479,32 +479,11 @@
                 if (this.state !== 'walk' && this.isGrounded) {
                     this.vx *= 0.8;
                 }
-
                 // Timers & Stamina
                 this.animTime += dt;
 
-                // Power attack check
-                if (this.currentMove && this.attackKey && !this.hasHit) {
-                    // Check if the key that initiated the attack is still held down
-                    let keyHeld = false;
-                    if (this.isPlayer) {
-                        // For player, check actual key state
-                        keyHeld = keys[this.attackKey];
-                    } else {
-                        // AI holds attacks randomly for 150ms sometimes
-                        if (this.aiHoldDuration === undefined) this.aiHoldDuration = Math.random() < 0.3 ? 150 : 0;
-                        keyHeld = this.attackHoldTime < this.aiHoldDuration;
-                    }
-
-                    if (keyHeld) {
-                        this.attackHoldTime += dt;
-                        if (this.attackHoldTime >= 100) {
-                            this.isPowerAttack = true;
-                        }
-                    }
-                }
-
                 if (this.stateTimer > 0) {
+
                     this.stateTimer -= dt;
                     if (this.stateTimer <= 0 && this.state !== 'ko') {
                         this.changeState('idle');
@@ -1320,8 +1299,7 @@ ctx.restore();
             flying_knee:    { type: 'high', dmg: 22, cost: 30, dur: 650, reach: 75,  active: [350, 500], isFlying: true },
             flying_kick:    { type: 'high', dmg: 30, cost: 45, dur: 800, reach: 100, active: [500, 650], isFlying: true }
         };
-
-        function initiateAttack(fighter, moveName, attackKey = null) {
+        function initiateAttack(fighter, moveName, attackKey = null, holdTime = 0) {
             const move = moves[moveName];
             const initialCost = move.cost * 0.5;
             if (fighter.stats.stamina >= initialCost && fighter.state !== 'hit' && fighter.state !== 'ko') {
@@ -1329,8 +1307,8 @@ ctx.restore();
                 fighter.changeState(moveName, move.dur, move);
                 fighter.attackKey = attackKey;
                 fighter.keyReleased = false; // Prevent holding button
-                fighter.attackHoldTime = 0;
-                fighter.isPowerAttack = false;
+                fighter.attackHoldTime = holdTime;
+                fighter.isPowerAttack = holdTime >= 100;
 
                 // Add forward momentum for flying moves
                 if (move.isFlying) {
@@ -1338,6 +1316,7 @@ ctx.restore();
                 }
             }
         }
+
 
         let particles = [];
         function createParticles(x, y) {
@@ -1518,7 +1497,6 @@ ctx.restore();
                         pFighter.keyReleased = false;
                     }
                 }
-
                 // Block (High / Low)
                 if (keys.o && pFighter.isGrounded && ['idle','walk','block','low_block'].includes(pFighter.state)) {
                     let blockState = keys.shift ? 'low_block' : 'block';
@@ -1528,20 +1506,35 @@ ctx.restore();
                     pFighter.changeState('idle'); // Stop blocking when key released
                 }
 
-                // Attacks (With Shift modifiers)
-                if (pFighter.isGrounded && ['idle','walk'].includes(pFighter.state) && pFighter.keyReleased) {
-                    if (keys.u) initiateAttack(pFighter, keys.shift ? 'body_jab' : 'jab', 'u');
-                    else if (keys.i) initiateAttack(pFighter, keys.shift ? 'body_cross' : 'cross', 'i');
-                    else if (keys.j) initiateAttack(pFighter, 'low_kick', 'j');
-                    else if (keys.k) initiateAttack(pFighter, 'high_kick', 'k');
-                } else if (!pFighter.isGrounded && pFighter.keyReleased) {
-                    // Flying moves
-                    if (keys.i) initiateAttack(pFighter, 'superman_punch', 'i');
-                    else if (keys.u || keys.j) initiateAttack(pFighter, 'flying_knee', keys.u ? 'u' : 'j');
-                    else if (keys.k) initiateAttack(pFighter, 'flying_kick', 'k');
-                }
+                // Attacks - charge while holding, attack on release
+                if (!pFighter.attackCharge) pFighter.attackCharge = {};
+                const attackKeys = ['u', 'i', 'j', 'k'];
+
+                // Track charging
+                attackKeys.forEach(k => {
+                    if (keys[k]) {
+                        if (!pFighter.attackCharge[k]) pFighter.attackCharge[k] = 0;
+                        pFighter.attackCharge[k] += dt;
+                    } else if (pFighter.attackCharge[k] > 0) {
+                        // Key released! Throw attack
+                        let holdTime = pFighter.attackCharge[k];
+                        pFighter.attackCharge[k] = 0;
+
+                        if (pFighter.isGrounded && ['idle','walk'].includes(pFighter.state)) {
+                            if (k === 'u') initiateAttack(pFighter, keys.shift ? 'body_jab' : 'jab', 'u', holdTime);
+                            else if (k === 'i') initiateAttack(pFighter, keys.shift ? 'body_cross' : 'cross', 'i', holdTime);
+                            else if (k === 'j') initiateAttack(pFighter, 'low_kick', 'j', holdTime);
+                            else if (k === 'k') initiateAttack(pFighter, 'high_kick', 'k', holdTime);
+                        } else if (!pFighter.isGrounded) {
+                            if (k === 'i') initiateAttack(pFighter, 'superman_punch', 'i', holdTime);
+                            else if (k === 'u' || k === 'j') initiateAttack(pFighter, 'flying_knee', k, holdTime);
+                            else if (k === 'k') initiateAttack(pFighter, 'flying_kick', 'k', holdTime);
+                        }
+                    }
+                });
 
                 if (moving && pFighter.state === 'idle') pFighter.changeState('walk', 9999);
+
                 if (!moving && pFighter.state === 'walk') pFighter.changeState('idle');
             }
 
@@ -1571,13 +1564,15 @@ ctx.restore();
                             oFighter.changeState('dodge', 400);
                             oFighter.vx = oFighter.facing * -2;
                         }
-                        // Random Attacks
-                        else if (rand < 0.02) initiateAttack(oFighter, 'jab');
-                        else if (rand < 0.04) initiateAttack(oFighter, 'cross');
-                        else if (rand < 0.05) initiateAttack(oFighter, 'body_jab');
-                        else if (rand < 0.06) initiateAttack(oFighter, 'body_cross');
-                        else if (rand < 0.07) initiateAttack(oFighter, 'low_kick');
-                        else if (rand < 0.08) initiateAttack(oFighter, 'high_kick');
+                        // Random Attacks with random charge
+                        let aiHold = Math.random() < 0.3 ? 150 : 0;
+                        if (rand < 0.02) initiateAttack(oFighter, 'jab', null, aiHold);
+                        else if (rand < 0.04) initiateAttack(oFighter, 'cross', null, aiHold);
+                        else if (rand < 0.05) initiateAttack(oFighter, 'body_jab', null, aiHold);
+                        else if (rand < 0.06) initiateAttack(oFighter, 'body_cross', null, aiHold);
+                        else if (rand < 0.07) initiateAttack(oFighter, 'low_kick', null, aiHold);
+                        else if (rand < 0.08) initiateAttack(oFighter, 'high_kick', null, aiHold);
+
                         // Block
                         else if (rand < 0.09 && pFighter.state !== 'idle') {
                             oFighter.changeState('block', 9999);
