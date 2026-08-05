@@ -6,7 +6,7 @@
             defense: 5,
             stamina: 100, maxStamina: 100, staminaRegen: 15, speedBonus: 0,
             neckGirth: 0, deltoidSize: 0, forearmSize: 0, thighSize: 0, calfSize: 0, chinSize: 0,
-            money: 0, rank: 0, losses: 0,
+            money: 0, rank: 0, losses: 0, wins: 0,
             appearance: { h: 1.0, w: 1.0, skin: '#e2e8f0', shorts: '#3b82f6', gloves: '#ef4444', hairstyle: 'short', haircolor: '#000000' }
         };
 
@@ -1206,6 +1206,7 @@ ctx.restore();
                     const opp = currentOpponentChoices[selectedOpponentIndex];
                     playerStats.money += opp.reward;
                     playerStats.rank++;
+                    playerStats.wins = (playerStats.wins || 0) + 1; // Track wins
                     playerStats.losses = 0; // Reset losses on win
                     currentOpponentChoices = [];
                     document.getElementById('result-title').textContent = "YOU WON!";
