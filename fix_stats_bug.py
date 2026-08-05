@@ -1,12 +1,22 @@
 import re
-with open('EFLTG.html', 'r') as f:
+
+with open('hairstyles_upgrade.html', 'r') as f:
     content = f.read()
 
-# I see the base width is set to things like 10 * w + (this.stats.neckGirth || 0) * 0.5;
-# But the user complains that characters don't look realistic BEFORE upgrades.
-# Let's check how the muscle base stats look.
-# Maybe I should just increase the base stat? "more shapes is needed for muscles and all"
-# Oh wait, the previous code in `replace_body.py` from earlier in this task had a completely different `drawDetailedLimb`?
-# Wait! Let me check what the user said:
-# "the upgrade that made the character shapes more complexe and realistic seems to have been scraped we need it back we need the characters to look realistic cefore upgrades so more shapes is needed for muscles and all"
+# Currently in Fighter constructor:
+# this.stats.power = this.stats.power * wScale;
+# This overrides the power stat, but doesn't take into account `deltoidSize` etc!
+# And it doesn't do anything for chinSize (+HP, +Def).
+# We should probably combine the new muscle upgrades into the raw stats in the constructor.
+# Or even better, update `updateGymUI()` to add these to the core stats? No, because it says "+Power".
+# Ah! In updateGymUI, it does `playerStats[key] += data.val;`
+# So `playerStats.deltoidSize` goes up. But the combat damage logic looks at `attacker.stats.power`.
+# So `attacker.stats.power` needs to be calculated dynamically in Fighter constructor, or `playerStats.deltoidSize` should ADD to `playerStats.power` when you upgrade it.
 
+# Let's look at updateGymUI():
+#                        } else {
+#                            playerStats[key] += data.val;
+#                        }
+# If we upgrade Deltoid Size, `playerStats.deltoidSize` increases. But `playerStats.power` DOES NOT INCREASE.
+# Same for Forearm Size (+Defense), Thigh Size (+Max Stamina), Calf Size (+Speed), Chin Size (+HP, +Def).
+# We need to add these derived stats to the Fighter initialization so they actually have gameplay effects!
