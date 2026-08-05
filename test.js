@@ -169,6 +169,8 @@
                 this.currentMove = null;
                 this.hasHit = false;
                 this.lastBlockTime = 0;
+                this.attackHoldTime = 0;
+                this.isPowerAttack = false;
 
                 this.joints = {
                     head: {x: 0, y: -70}, neck: {x: 0, y: -50}, pelvis: {x: 0, y: 10},
@@ -213,6 +215,28 @@
 
                 // Timers & Stamina
                 this.animTime += dt;
+
+                // Power attack check
+                if (this.currentMove && this.attackKey && !this.hasHit) {
+                    // Check if the key that initiated the attack is still held down
+                    let keyHeld = false;
+                    if (this.isPlayer) {
+                        // For player, check actual key state
+                        keyHeld = keys[this.attackKey];
+                    } else {
+                        // AI holds attacks randomly for 150ms sometimes
+                        if (this.aiHoldDuration === undefined) this.aiHoldDuration = Math.random() < 0.3 ? 150 : 0;
+                        keyHeld = this.attackHoldTime < this.aiHoldDuration;
+                    }
+
+                    if (keyHeld) {
+                        this.attackHoldTime += dt;
+                        if (this.attackHoldTime >= 100) {
+                            this.isPowerAttack = true;
+                        }
+                    }
+                }
+
                 if (this.stateTimer > 0) {
                     this.stateTimer -= dt;
                     if (this.stateTimer <= 0 && this.state !== 'ko') {
@@ -334,14 +358,14 @@
                     attackIntensity = Math.sin(p * Math.PI) * animScale;
 
                     if (this.state === 'jab') {
-                        targetT.fHand = {x: 85*f*w, y: -65*h};
+                        targetT.fHand = {x: 120*f*w, y: -65*h}; // Extended past max reach to force full extension
                         targetT.bHand = {x: 0, y: -60*h}; // Guard high
                         targetT.head.x += 10*f;
                         targetT.pelvis.x += 5*f; targetT.pelvis.y -= 5*h; // Plant down slightly
                         targetT.fFoot.x += 5*f; // Slight step
                         targetT.bKnee.x += 10*f; // Slight rotation
                     } else if (this.state === 'cross') {
-                        targetT.bHand = {x: 95*f*w, y: -60*h};
+                        targetT.bHand = {x: 130*f*w, y: -60*h}; // Extended past max reach
                         targetT.fHand = {x: -15*f*w, y: -65*h}; // Pull back guard
                         targetT.head.x += 20*f; targetT.head.y -= 5*h;
                         targetT.pelvis.x += 25*f; // Deep rotation
@@ -351,22 +375,22 @@
                     } else if (this.state === 'body_jab') {
                         targetT.pelvis.y += 35*h; targetT.head.y += 35*h;
                         targetT.head.x += 15*f;
-                        targetT.fHand = {x: 75*f*w, y: -5*h};
+                        targetT.fHand = {x: 110*f*w, y: -5*h}; // Extended past max reach
                         targetT.bHand = {x: 0, y: -45*h};
                         targetT.fKnee.x += 15*f; targetT.fFoot.x += 10*f;
                     } else if (this.state === 'body_cross') {
                         targetT.pelvis.y += 35*h; targetT.head.y += 35*h;
                         targetT.pelvis.x += 25*f; targetT.head.x += 20*f;
-                        targetT.bHand = {x: 85*f*w, y: -5*h};
+                        targetT.bHand = {x: 120*f*w, y: -5*h}; // Extended past max reach
                         targetT.fHand = {x: -15*f*w, y: -45*h};
                         targetT.bKnee.x += 20*f; targetT.bFoot.x += 10*f; targetT.bFoot.y -= 5*h; // Pivot
                     } else if (this.state === 'low_kick') {
-                        targetT.bFoot = {x: 65*f*w, y: 65*h};
+                        targetT.bFoot = {x: 110*f*w, y: 65*h}; // Extended past max reach
                         targetT.pelvis.x -= 15*f; targetT.head.x -= 20*f; targetT.head.y += 5*h;
                         targetT.fHand.x -= 25*f; targetT.bHand.x += 35*f; // Big arm swing for torque
                         targetT.fFoot.x -= 10*f; // Plant foot steps out
                     } else if (this.state === 'high_kick') {
-                        targetT.bFoot = {x: 75*f*w, y: -75*h};
+                        targetT.bFoot = {x: 120*f*w, y: -75*h}; // Extended past max reach
                         targetT.pelvis.x -= 25*f; targetT.head.x -= 35*f; targetT.head.y += 15*h; // Deep lean back
                         targetT.fHand.x -= 30*f; targetT.bHand.x += 45*f; // Whip arms
                         targetT.fFoot.x -= 15*f; // Plant foot steps out
@@ -872,6 +896,8 @@ ctx.restore();
                 fighter.changeState(moveName, move.dur, move);
                 fighter.attackKey = attackKey;
                 fighter.keyReleased = false; // Prevent holding button
+                fighter.attackHoldTime = 0;
+                fighter.isPowerAttack = false;
 
                 // Add forward momentum for flying moves
                 if (move.isFlying) {
