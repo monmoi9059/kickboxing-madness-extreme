@@ -4,7 +4,8 @@
             hp: 100, maxHp: 100,
             power: 10,
             defense: 5,
-            stamina: 100, maxStamina: 100, staminaRegen: 15,
+            stamina: 100, maxStamina: 100, staminaRegen: 15, speedBonus: 0,
+            neckGirth: 0, deltoidSize: 0, forearmSize: 0, thighSize: 0, calfSize: 0, chinSize: 0,
             money: 0, rank: 0,
             appearance: { h: 1.0, w: 1.0, skin: '#e2e8f0', shorts: '#3b82f6', gloves: '#ef4444', hairstyle: 'short', haircolor: '#000000' }
         };
@@ -15,10 +16,17 @@
             defense: { base: 40, mult: 1.4, name: "Defense (Traps Size)", val: 2 },
             maxStamina: { base: 40, mult: 1.3, name: "Max Stamina (Abs)", val: 15 },
             staminaRegen: { base: 50, mult: 1.5, name: "Cardio", val: 3 },
-            botchedSurgery: { base: 200, mult: 2.0, name: "Botched Limb Lengthening (-Stamina)", val: 1 }
+            speedBonus: { base: 75, mult: 1.6, name: "Movement Speed (Leg Muscles)", val: 0.5 },
+            botchedSurgery: { base: 200, mult: 2.0, name: "Botched Limb Lengthening (-Stamina)", val: 1 },
+            neckGirth: { base: 45, mult: 1.4, name: "Neck Girth (+Max HP)", val: 10 },
+            deltoidSize: { base: 55, mult: 1.5, name: "Deltoid Size (+Power)", val: 2 },
+            forearmSize: { base: 45, mult: 1.4, name: "Forearm Size (+Defense)", val: 1 },
+            thighSize: { base: 45, mult: 1.3, name: "Thigh Size (+Max Stamina)", val: 10 },
+            calfSize: { base: 65, mult: 1.5, name: "Calf Size (+Speed)", val: 0.3 },
+            chinSize: { base: 80, mult: 1.6, name: "Chad Chin (+HP, +Def)", val: 5 }
         };
 
-        let upgradeLevels = { maxHp: 0, power: 0, defense: 0, maxStamina: 0, staminaRegen: 0, botchedSurgery: 0 };
+        let upgradeLevels = { maxHp: 0, power: 0, defense: 0, maxStamina: 0, staminaRegen: 0, speedBonus: 0, botchedSurgery: 0, neckGirth: 0, deltoidSize: 0, forearmSize: 0, thighSize: 0, calfSize: 0, chinSize: 0 };
 
         const opponents = [
             { name: "Glass Joe", desc: "A weak local amateur.", stats: { maxHp: 80, power: 5, defense: 2, maxStamina: 80, staminaRegen: 10, appearance: { h: 0.85, w: 0.8, skin: '#fcd34d', shorts: '#ef4444', gloves: '#3b82f6', hairstyle: 'short', haircolor: '#fbbf24' } }, reward: 100 },
@@ -31,6 +39,8 @@
         // --- ENGINE VARIABLES ---
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
+        let currentOpponentChoices = [];
+        let selectedOpponentIndex = 0;
         let pFighter, oFighter;
         let lastTime = 0;
         let gameLoopId;
@@ -49,6 +59,9 @@
             if (!previewFighter) {
                 previewFighter = new Fighter(150, 0, 1, playerStats, true);
                 previewFighter.state = 'idle';
+            } else {
+                // Completely re-sync stats so new widths calculate properly
+                previewFighter.stats = JSON.parse(JSON.stringify(playerStats));
             }
 
             // Sync stats
@@ -139,7 +152,7 @@
 
                 // Speed is inversely proportional to weight. Heavier = slower. Taller = slightly slower to get moving.
                 // Base speed is 4.
-                this.speed = 4 * (1 / wScale) * (1 / ((hScale - 1) * 0.5 + 1));
+                this.speed = (4 * (1 / wScale) * (1 / ((hScale - 1) * 0.5 + 1))) + (stats.speedBonus || 0);
 
                 // Power is amplified by weight.
                 this.stats.power = this.stats.power * wScale;
@@ -231,11 +244,30 @@
                 // Translate: Center X, align Y so feet hit the floor perfectly regardless of Height scale
                 ctx.translate(this.x + this.width/2, (this.y + this.height) - (90 * h));
 
-                // --- MUSCLE MUTATION MATH (Capped for aesthetic limits) ---
-                let chestW = Math.min(45, 20 + (this.stats.maxHp / 15)) * w;
-                let bicepW = Math.min(22, 8 + (this.stats.power / 4)) * w;
-                let trapsW = Math.min(25, 10 + (this.stats.defense / 2.5)) * w;
-                let hasAbs = this.stats.maxStamina >= 120;
+                // --- MUSCLE MUTATION MATH ---
+                // The higher the stat goes over base (100 HP, 10 Pwr, 5 Def), the more visually massive they get
+                let chestBase = 26; // Base width
+                let hpBonus = Math.max(0, this.stats.maxHp - 100) * 0.15; // 20hp upgrade = +3 width
+                let chestW = (chestBase + hpBonus) * w;
+
+                let bicepBase = 10;
+                let powerBonus = Math.max(0, this.stats.power - 10) * 1.5; // 3 pwr upgrade = +4.5 width
+                let bicepW = (bicepBase + powerBonus) * w;
+
+                let trapsBase = 12;
+                let defBonus = Math.max(0, this.stats.defense - 5) * 1.5; // 2 def upgrade = +3 width
+                let trapsW = (trapsBase + defBonus) * w;
+
+                // Calculate new distinct muscle widths
+                let neckW = 10 * w + (this.stats.neckGirth || 0) * 0.5;
+                let deltoidW = 14 * w + (this.stats.deltoidSize || 0) * 1.2;
+                let forearmW = 8 * w + (this.stats.forearmSize || 0) * 1.5;
+                let thighW = 22 * w + (this.stats.thighSize || 0) * 0.4 + (this.stats.speedBonus || 0) * 3;
+                let calfW = 14 * w + (this.stats.calfSize || 0) * 1.2 + (this.stats.speedBonus || 0) * 2;
+                let jointW = 10 * w; // Base width for knees/elbows
+
+                // Abs show if maxStamina is upgraded at least once (base is 100, upgrade is +15)
+                let hasAbs = this.stats.maxStamina >= 115;
 
                 // Color theme
                 const skin = app.skin;
@@ -298,56 +330,67 @@
                     // Calculate animation progress (0 to 1)
                     let p = (this.currentMove.dur - this.stateTimer) / this.currentMove.dur;
                     // Sine wave creates natural ease-in / ease-out extension (0 -> 1 -> 0)
-                    attackIntensity = Math.sin(p * Math.PI);
+                    const animScale = this.isPowerAttack ? 1.0 : 0.6;
+                    attackIntensity = Math.sin(p * Math.PI) * animScale;
 
                     if (this.state === 'jab') {
-                        targetT.fHand = {x: 75*f*w, y: -65*h};
-                        targetT.bHand = {x: 5*f*w, y: -65*h};
-                        targetT.head.x += 15*f; targetT.pelvis.x += 10*f;
+                        targetT.fHand = {x: 85*f*w, y: -65*h};
+                        targetT.bHand = {x: 0, y: -60*h}; // Guard high
+                        targetT.head.x += 10*f;
+                        targetT.pelvis.x += 5*f; targetT.pelvis.y -= 5*h; // Plant down slightly
+                        targetT.fFoot.x += 5*f; // Slight step
+                        targetT.bKnee.x += 10*f; // Slight rotation
                     } else if (this.state === 'cross') {
-                        targetT.bHand = {x: 85*f*w, y: -60*h};
+                        targetT.bHand = {x: 95*f*w, y: -60*h};
                         targetT.fHand = {x: -15*f*w, y: -65*h}; // Pull back guard
-                        targetT.pelvis.x += 20*f; targetT.head.x += 20*f;
+                        targetT.head.x += 20*f; targetT.head.y -= 5*h;
+                        targetT.pelvis.x += 25*f; // Deep rotation
+                        targetT.bKnee.x += 25*f; // Back hip turns over
+                        targetT.bFoot.x += 15*f; targetT.bFoot.y -= 5*h; // Pivot on ball of back foot
+                        targetT.fKnee.x -= 10*f; // Front hip pulls back
                     } else if (this.state === 'body_jab') {
-                        targetT.pelvis.y += 30*h; targetT.head.y += 30*h;
-                        targetT.fHand = {x: 65*f*w, y: -5*h};
-                        targetT.bHand = {x: 5*f*w, y: -45*h};
+                        targetT.pelvis.y += 35*h; targetT.head.y += 35*h;
+                        targetT.head.x += 15*f;
+                        targetT.fHand = {x: 75*f*w, y: -5*h};
+                        targetT.bHand = {x: 0, y: -45*h};
+                        targetT.fKnee.x += 15*f; targetT.fFoot.x += 10*f;
                     } else if (this.state === 'body_cross') {
-                        targetT.pelvis.y += 30*h; targetT.head.y += 30*h;
-                        targetT.bHand = {x: 75*f*w, y: -5*h};
+                        targetT.pelvis.y += 35*h; targetT.head.y += 35*h;
+                        targetT.pelvis.x += 25*f; targetT.head.x += 20*f;
+                        targetT.bHand = {x: 85*f*w, y: -5*h};
                         targetT.fHand = {x: -15*f*w, y: -45*h};
-                        targetT.pelvis.x += 20*f;
+                        targetT.bKnee.x += 20*f; targetT.bFoot.x += 10*f; targetT.bFoot.y -= 5*h; // Pivot
                     } else if (this.state === 'low_kick') {
                         targetT.bFoot = {x: 65*f*w, y: 65*h};
-                        targetT.pelvis.x -= 15*f; targetT.head.x -= 20*f;
-                        targetT.fHand.x -= 15*f; targetT.bHand.x += 25*f; // Arm swing for balance
+                        targetT.pelvis.x -= 15*f; targetT.head.x -= 20*f; targetT.head.y += 5*h;
+                        targetT.fHand.x -= 25*f; targetT.bHand.x += 35*f; // Big arm swing for torque
+                        targetT.fFoot.x -= 10*f; // Plant foot steps out
                     } else if (this.state === 'high_kick') {
-                        targetT.bFoot = {x: 65*f*w, y: -70*h};
-                        targetT.pelvis.x -= 25*f; targetT.head.x -= 30*f; targetT.head.y += 10*h; // Lean back
-                        targetT.fHand.x -= 20*f; targetT.bHand.x += 35*f;
+                        targetT.bFoot = {x: 75*f*w, y: -75*h};
+                        targetT.pelvis.x -= 25*f; targetT.head.x -= 35*f; targetT.head.y += 15*h; // Deep lean back
+                        targetT.fHand.x -= 30*f; targetT.bHand.x += 45*f; // Whip arms
+                        targetT.fFoot.x -= 15*f; // Plant foot steps out
                     } else if (this.state === 'superman_punch') {
                         // Launch forward, back leg kicks out behind, back hand strikes
-                        targetT.pelvis.y -= 30*h; targetT.head.y -= 25*h; targetT.head.x += 30*f;
-                        targetT.bHand = {x: 100*f*w, y: -55*h};
-                        targetT.fHand = {x: -20*f*w, y: -55*h};
-                        targetT.bFoot = {x: -60*f*w, y: -10*h}; // Kick back
+                        targetT.pelvis.y -= 30*h; targetT.head.y -= 25*h; targetT.head.x += 35*f;
+                        targetT.bHand = {x: 105*f*w, y: -55*h};
+                        targetT.fHand = {x: -25*f*w, y: -55*h};
+                        targetT.bFoot = {x: -70*f*w, y: -15*h}; // Kick back hard
                         targetT.fFoot = {x: -10*f*w, y: 50*h}; // Tucked
                     } else if (this.state === 'flying_knee') {
                         // Leap, drive front knee up
-                        targetT.pelvis.y -= 40*h; targetT.head.y -= 35*h; targetT.head.x -= 10*f;
-                        targetT.bHand = {x: -10*f*w, y: -70*h}; targetT.fHand = {x: 30*f*w, y: -20*h}; // Guard up/down
-                        targetT.bFoot = {x: -20*f*w, y: 60*h};
-                        targetT.fFoot = {x: 50*f*w, y: 0}; // Knee forward
-                        // NOTE: Because we use drawDetailedLimb to calc knees, we just pull the foot up and forward
+                        targetT.pelvis.y -= 45*h; targetT.head.y -= 40*h; targetT.head.x -= 15*f;
+                        targetT.bHand = {x: -15*f*w, y: -70*h}; targetT.fHand = {x: 35*f*w, y: -20*h};
+                        targetT.bFoot = {x: -25*f*w, y: 60*h};
+                        targetT.fFoot = {x: 60*f*w, y: 0}; // Knee forward driven high
                     } else if (this.state === 'flying_kick') {
                         // Switch kick mid-air
-                        targetT.pelvis.y -= 30*h; targetT.pelvis.x += 20*f;
-                        targetT.head.y -= 20*h; targetT.head.x -= 20*f;
-                        targetT.fFoot = {x: -30*f*w, y: 40*h}; // Tuck front
-                        targetT.bFoot = {x: 100*f*w, y: -40*h}; // Extend back
-                        targetT.fHand.x -= 30*f; targetT.bHand.x += 40*f; // Arm swing
-                    }
-                    } else if (this.state === 'block') {
+                        targetT.pelvis.y -= 35*h; targetT.pelvis.x += 25*f;
+                        targetT.head.y -= 25*h; targetT.head.x -= 25*f;
+                        targetT.fFoot = {x: -35*f*w, y: 40*h}; // Tuck front
+                        targetT.bFoot = {x: 110*f*w, y: -45*h}; // Extend back fully
+                        targetT.fHand.x -= 35*f; targetT.bHand.x += 45*f; // Arm swing
+                    }} else if (this.state === 'block') {
                     targetT.fHand = {x: 15*f*w, y: -65*h};
                     targetT.bHand = {x: 0, y: -70*h};
                     targetT.head.x -= 12*f; targetT.head.y += 8*h;
@@ -389,6 +432,22 @@
                     targetT.bFoot = {x: 40*f, y: 90};
                     targetT.fKnee = {x: 50*f, y: 85};
                     targetT.bKnee = {x: 20*f, y: 85};
+                }
+
+                // Dynamically extend attack visuals based on limbMod so it matches hitbox reach and prevents bunching
+                if (isAttack && this.limbMod > 0) {
+                    let ext = this.limbMod;
+
+                    // Hands/feet go further out
+                    if (this.state === 'jab' || this.state === 'body_jab') targetT.fHand.x += ext * f;
+                    if (this.state === 'cross' || this.state === 'body_cross') targetT.bHand.x += ext * f;
+                    if (this.state === 'low_kick' || this.state === 'high_kick' || this.state === 'flying_kick') {
+                        targetT.bFoot.x += ext * f;
+                        targetT.pelvis.y -= ext * 0.3; // Lift torso to allow for longer leg without scrunching
+                        targetT.head.y -= ext * 0.3;
+                    }
+                    if (this.state === 'superman_punch') targetT.bHand.x += ext * f;
+                    if (this.state === 'flying_knee') targetT.fFoot.x += ext * f;
                 }
 
                 // Blend Attack Extension smoothly
@@ -443,32 +502,24 @@
                 };
 
                 const drawDetailedLimb = (startJoint, endJoint, bendDir, limbLength, width, outlineCol, fillCol, hasTattoo = false) => {
-                    // Botched surgery visual: If limb length is wildly upgraded, make it look disjointed/crooked
                     let botchedLevel = app.limbLengthMod ? Math.floor(app.limbLengthMod / 20) : 0;
-
-                    // Add some terrifying jiggle to the joint if severely botched
                     let jiggleX = 0; let jiggleY = 0;
                     if (botchedLevel > 0 && this.state !== 'ko') {
                         jiggleX = (Math.random() - 0.5) * botchedLevel * 2;
                         jiggleY = (Math.random() - 0.5) * botchedLevel * 2;
                     }
 
-                    // Calculate midpoint (elbow/knee)
                     let dx = endJoint.x - startJoint.x;
                     let dy = endJoint.y - startJoint.y;
                     let dist = Math.sqrt(dx*dx + dy*dy);
 
-                    // If distance is too long, constrain it (prevent tearing)
                     if (dist > limbLength) {
                         dx = (dx / dist) * limbLength;
                         dy = (dy / dist) * limbLength;
                         dist = limbLength;
                     }
 
-                    // Calculate elbow/knee joint using trigonometry
-                    // Assuming upper and lower limbs are equal length (limbLength / 2)
                     let l = limbLength / 2;
-                    // Law of cosines to find angle
                     let cosAngle = (dist*dist) / (2 * l * dist);
                     if (cosAngle > 1) cosAngle = 1;
                     let angle = Math.acos(cosAngle);
@@ -479,25 +530,35 @@
                     let midX = startJoint.x + Math.cos(midAngle) * l + jiggleX;
                     let midY = startJoint.y + Math.sin(midAngle) * l + jiggleY;
 
-                    // Draw Outline
-                    ctx.beginPath();
-                    ctx.lineCap = 'round';
-                    ctx.lineJoin = 'round';
-                    ctx.lineWidth = width;
-                    ctx.strokeStyle = outlineCol;
-                    ctx.moveTo(startJoint.x, startJoint.y);
-                    ctx.lineTo(midX, midY);
-                    ctx.lineTo(endJoint.x, endJoint.y);
-                    ctx.stroke();
+                    // Tapered limbs: Upper limb is full width, lower limb is slightly thinner (0.8x)
+                    let lowerWidth = width * 0.75;
 
-                    // Draw Fill
+                    // Helper to draw a segment
+                    const drawSegment = (p1x, p1y, p2x, p2y, w, col, isFill) => {
+                        ctx.beginPath();
+                        ctx.lineCap = 'round';
+                        ctx.lineJoin = 'round';
+                        ctx.lineWidth = isFill ? w - 2 : w;
+                        ctx.strokeStyle = col;
+                        ctx.moveTo(p1x, p1y);
+                        ctx.lineTo(p2x, p2y);
+                        ctx.stroke();
+                    };
+
+                    // Draw Outline
+                    drawSegment(startJoint.x, startJoint.y, midX, midY, width, outlineCol, false);
+                    drawSegment(midX, midY, endJoint.x, endJoint.y, lowerWidth, outlineCol, false);
+
+                    // Draw Fill (using arc trick to make a smooth elbow/knee joint)
+                    drawSegment(startJoint.x, startJoint.y, midX, midY, width, fillCol, true);
+
+                    // Draw a circle at the joint to smooth the transition
+                    ctx.fillStyle = fillCol;
                     ctx.beginPath();
-                    ctx.lineWidth = width - 2;
-                    ctx.strokeStyle = fillCol;
-                    ctx.moveTo(startJoint.x, startJoint.y);
-                    ctx.lineTo(midX, midY);
-                    ctx.lineTo(endJoint.x, endJoint.y);
-                    ctx.stroke();
+                    ctx.arc(midX, midY, (width-2)/2, 0, Math.PI*2);
+                    ctx.fill();
+
+                    drawSegment(midX, midY, endJoint.x, endJoint.y, lowerWidth, fillCol, true);
 
                     // Tattoos on Upper Arm
                     if (hasTattoo && tattoo !== 'none') {
@@ -513,6 +574,7 @@
                             ctx.lineTo(tX2, tY2);
                             ctx.stroke();
                         }
+                    } // Fixed missing brace here
 
                     // Botched Stitches!
                     if (botchedLevel > 0) {
@@ -525,22 +587,20 @@
                         ctx.lineTo(midX + width/2, midY - 5);
                         ctx.stroke();
 
-                        // Metal Pins
                         if (botchedLevel > 1) {
                             ctx.fillStyle = 'silver';
                             ctx.fillRect(midX - 3, midY - 15, 6, 30);
                             ctx.strokeRect(midX - 3, midY - 15, 6, 30);
                         }
                     }
-                }
                 };
 
                 const armLength = (75 * h) + (app.limbLengthMod || 0);
                 const legLength = (80 * h) + (app.limbLengthMod || 0);
 
                 // Back Arm (Bicep mutated)
-                let bBend = this.state === 'dodge' ? f : -f; // Bend direction
-                drawDetailedLimb(t.neck, t.bHand, bBend, armLength, bicepW, outline, skin, true);
+                let bBend = f; // Bend backwards (elbows back)
+                drawDetailedLimb(t.neck, t.bHand, bBend, armLength, bicepW, forearmW, jointW, deltoidW, outline, skin, true);
 
                 // Back Glove
                 ctx.fillStyle = gloves;
@@ -555,17 +615,32 @@
                 ctx.fill(); ctx.stroke();
 
                 // Back Leg
-                drawDetailedLimb(t.pelvis, t.bFoot, f, legLength, 12, outline, skin);
+                drawDetailedLimb(t.pelvis, t.bFoot, -f, legLength, thighW, calfW, jointW, 0, outline, skin);
 
-                // Torso (Traps and Chest mutated)
+                // Torso and Neck
+                let hipW = Math.max(20, chestW * 0.85);
+
+                // Draw Neck
                 ctx.fillStyle = skin;
                 ctx.strokeStyle = outline;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.moveTo(t.neck.x - trapsW, t.neck.y); // Traps left
-                ctx.lineTo(t.neck.x + trapsW, t.neck.y); // Traps right
-                ctx.lineTo(t.pelvis.x + chestW/2, t.pelvis.y); // Hip right
-                ctx.lineTo(t.pelvis.x - chestW/2, t.pelvis.y); // Hip left
+                // Neck connects t.neck to base of head
+                ctx.moveTo(t.neck.x - neckW/2, t.neck.y + 5*h);
+                ctx.lineTo(t.neck.x + neckW/2, t.neck.y + 5*h);
+                ctx.lineTo(t.head.x + neckW/2, t.head.y);
+                ctx.lineTo(t.head.x - neckW/2, t.head.y);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+
+                // Draw Torso
+                ctx.beginPath();
+                ctx.moveTo(t.neck.x - trapsW, t.neck.y);
+                ctx.lineTo(t.neck.x + trapsW, t.neck.y);
+                let midY = (t.neck.y + t.pelvis.y) / 2;
+                ctx.quadraticCurveTo(t.neck.x + trapsW*0.9, midY, t.pelvis.x + hipW/2, t.pelvis.y);
+                ctx.lineTo(t.pelvis.x - hipW/2, t.pelvis.y);
+                ctx.quadraticCurveTo(t.neck.x - trapsW*0.9, midY, t.neck.x - trapsW, t.neck.y);
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
 
@@ -600,10 +675,10 @@
                 // Shorts
                 ctx.fillStyle = shorts;
                 ctx.beginPath();
-                ctx.moveTo(t.pelvis.x - chestW/2 - 2, t.pelvis.y - 10*h);
-                ctx.lineTo(t.pelvis.x + chestW/2 + 2, t.pelvis.y - 10*h);
-                ctx.lineTo(t.pelvis.x + chestW/2, t.pelvis.y + 20*h);
-                ctx.lineTo(t.pelvis.x - chestW/2, t.pelvis.y + 20*h);
+                ctx.moveTo(t.pelvis.x - hipW/2 - 2, t.pelvis.y - 10*h);
+                ctx.lineTo(t.pelvis.x + hipW/2 + 2, t.pelvis.y - 10*h);
+                ctx.lineTo(t.pelvis.x + hipW/2, t.pelvis.y + 20*h);
+                ctx.lineTo(t.pelvis.x - hipW/2, t.pelvis.y + 20*h);
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
 
@@ -611,66 +686,155 @@
                 ctx.fillStyle = skin;
                 ctx.beginPath();
                 const headRadius = 16 * ((h+w)/2);
-                ctx.arc(t.head.x, t.head.y, headRadius, 0, Math.PI*2);
+                // Make the head slightly oval to better represent a side profile
+                ctx.ellipse(t.head.x, t.head.y, headRadius*0.95, headRadius*1.1, 0, 0, Math.PI*2);
                 ctx.fill(); ctx.stroke();
 
-                // Hair Rendering
+                // Mega Chad Chin
+                let chinLevel = this.stats.chinSize || 0;
+                if (chinLevel > 0) {
+                    ctx.fillStyle = skin;
+                    ctx.strokeStyle = outline;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    // Extend chin forward and down
+                    let chinW = headRadius * 0.5 + (chinLevel * 3 * w);
+                    let chinH = headRadius * 0.3 + (chinLevel * 2 * h);
+
+                    let startX = t.head.x + (f * headRadius * 0.3);
+                    let startY = t.head.y + headRadius * 0.5;
+
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(startX + (f * chinW), startY);
+                    ctx.lineTo(startX + (f * chinW * 0.9), startY + chinH);
+                    ctx.lineTo(t.head.x, startY + chinH * 0.8);
+                    ctx.closePath();
+                    ctx.fill(); ctx.stroke();
+                }
+
+                // Eye (to establish side profile)
+                ctx.fillStyle = 'rgba(0,0,0,0.8)';
+                ctx.beginPath();
+                // Place eye on the front half of the face
+                let eyeX = t.head.x + (f * headRadius * 0.4);
+                let eyeY = t.head.y - headRadius * 0.1;
+                ctx.arc(eyeX, eyeY, headRadius*0.15, 0, Math.PI*2);
+                ctx.fill();
+
+                // Hair Rendering (adjusted for side profile)
                 const hStyle = app.hairstyle || 'bald';
                 if (hStyle !== 'bald') {
                     ctx.fillStyle = app.haircolor || '#000000';
                     if (hStyle === 'short') {
                         ctx.beginPath();
-                        ctx.arc(t.head.x, t.head.y - headRadius*0.2, headRadius*1.05, Math.PI, 2*Math.PI);
+                        // Hair hugs the top and back of the head
+                        let startA = f === 1 ? Math.PI*0.8 : Math.PI*0.2;
+                        let endA = f === 1 ? Math.PI*2.1 : Math.PI*1.9;
+                        ctx.arc(t.head.x - (f * headRadius*0.1), t.head.y - headRadius*0.2, headRadius*1.05, startA, endA);
                         ctx.fill();
                     } else if (hStyle === 'mohawk') {
                         ctx.beginPath();
-                        ctx.moveTo(t.head.x - headRadius*0.4, t.head.y - headRadius*0.7);
+                        // Mohawk spans from front-top to back-bottom
+                        ctx.moveTo(t.head.x + (f*headRadius*0.5), t.head.y - headRadius*0.8);
                         ctx.lineTo(t.head.x, t.head.y - headRadius*2.2);
-                        ctx.lineTo(t.head.x + headRadius*0.4, t.head.y - headRadius*0.7);
+                        ctx.lineTo(t.head.x - (f*headRadius*0.8), t.head.y - headRadius*0.2);
                         ctx.fill();
                     } else if (hStyle === 'afro') {
                         ctx.beginPath();
-                        ctx.arc(t.head.x, t.head.y - headRadius*0.6, headRadius*1.5, 0, Math.PI*2);
+                        // Shift afro slightly back for side profile
+                        ctx.arc(t.head.x - (f*headRadius*0.2), t.head.y - headRadius*0.6, headRadius*1.4, 0, Math.PI*2);
                         ctx.fill();
                     } else if (hStyle === 'spiky') {
                         ctx.beginPath();
-                        for(let s = -1; s <= 1; s += 0.5) {
-                            ctx.moveTo(t.head.x + s*headRadius*0.9, t.head.y - headRadius*0.4);
-                            ctx.lineTo(t.head.x + (s+0.2)*headRadius*1.2, t.head.y - headRadius*1.8);
-                            ctx.lineTo(t.head.x + (s+0.4)*headRadius*0.9, t.head.y - headRadius*0.4);
+                        // Spikes angled backward
+                        for(let s = -0.5; s <= 1; s += 0.4) {
+                            let spikeX = t.head.x - (f * s * headRadius);
+                            let spikeTipX = spikeX - (f * headRadius * 0.5);
+                            ctx.moveTo(spikeX + headRadius*0.2, t.head.y - headRadius*0.6);
+                            ctx.lineTo(spikeTipX, t.head.y - headRadius*1.8);
+                            ctx.lineTo(spikeX - headRadius*0.2, t.head.y - headRadius*0.6);
                         }
                         ctx.fill();
                     }
                 }
 
-                // Facial Hair
+                // Facial Hair (adjusted for side profile)
                 if (fHair !== 'none') {
                     ctx.fillStyle = app.haircolor || '#000000';
-                    let faceX = t.head.x + (f * headRadius * 0.7); // Front of face
-                    let faceY = t.head.y;
+                    let faceFrontX = t.head.x + (f * headRadius * 0.9);
+                    let chinY = t.head.y + headRadius * 0.9;
+                    let jawX = t.head.x;
 
                     if (fHair === 'beard') {
+                        // Traces jawline and chin
                         ctx.beginPath();
-                        ctx.arc(t.head.x, t.head.y, headRadius*1.1, 0, Math.PI); // Bottom half of face
+                        ctx.moveTo(t.head.x + (f*headRadius*0.2), t.head.y);
+                        ctx.lineTo(faceFrontX, t.head.y + headRadius*0.5);
+                        ctx.lineTo(t.head.x + (f*headRadius*0.5), chinY + headRadius*0.2);
+                        ctx.lineTo(jawX - (f*headRadius*0.2), t.head.y + headRadius*0.8);
+                        ctx.lineTo(t.head.x - (f*headRadius*0.1), t.head.y + headRadius*0.2);
                         ctx.fill();
                     } else if (fHair === 'mustache') {
+                        // Simple angled line above mouth
                         ctx.beginPath();
-                        ctx.ellipse(faceX, faceY + headRadius*0.2, headRadius*0.5, headRadius*0.15, 0, 0, Math.PI*2);
+                        ctx.ellipse(faceFrontX - (f*headRadius*0.1), t.head.y + headRadius*0.4, headRadius*0.4, headRadius*0.1, f === 1 ? Math.PI*0.1 : -Math.PI*0.1, 0, Math.PI*2);
                         ctx.fill();
                     } else if (fHair === 'goatee') {
+                        // Just on the chin
                         ctx.beginPath();
-                        ctx.arc(faceX, faceY + headRadius*0.6, headRadius*0.3, 0, Math.PI*2);
+                        ctx.arc(t.head.x + (f*headRadius*0.7), chinY, headRadius*0.35, 0, Math.PI*2);
                         ctx.fill();
                     }
                 }
 
+                // Battle Damage (Bruises and Bleeding based on HP percentage)
+                let hpPercent = this.stats.hp / this.stats.maxHp;
+                if (hpPercent < 0.7) {
+                    let damageLevel = 1.0 - hpPercent; // 0.3 at 70%, 0.9 at 10%
+
+                    // Body bruising
+                    ctx.fillStyle = `rgba(75, 0, 130, ${damageLevel * 0.4})`; // Purple bruise
+                    ctx.beginPath();
+                    ctx.ellipse(t.pelvis.x + (f * hipW*0.2), t.pelvis.y - 15*h, hipW*0.3, 10*h, 0, 0, Math.PI*2); // Ribs
+                    ctx.fill();
+
+                    // Face bruising (black eye / swollen cheek)
+                    ctx.fillStyle = `rgba(50, 0, 50, ${damageLevel * 0.5})`;
+                    ctx.beginPath();
+                    ctx.arc(t.head.x + (f * headRadius * 0.5), t.head.y, headRadius*0.3, 0, Math.PI*2);
+                    ctx.fill();
+
+                    if (hpPercent < 0.4) {
+                        // Blood trickles
+                        ctx.strokeStyle = `rgba(180, 0, 0, ${damageLevel * 0.8})`;
+                        ctx.lineWidth = 2;
+
+                        // From nose/mouth
+                        ctx.beginPath();
+                        ctx.moveTo(t.head.x + (f * headRadius * 0.8), t.head.y + headRadius*0.2);
+                        ctx.lineTo(t.head.x + (f * headRadius * 0.6), t.head.y + headRadius*0.7);
+                        ctx.stroke();
+
+                        // From eye
+                        ctx.beginPath();
+                        ctx.moveTo(t.head.x + (f * headRadius * 0.4), t.head.y + headRadius*0.1);
+                        ctx.lineTo(t.head.x + (f * headRadius * 0.2), t.head.y + headRadius*0.8);
+                        ctx.stroke();
+
+                        // Chest streak
+                        ctx.beginPath();
+                        ctx.moveTo(t.neck.x + (f * trapsW * 0.4), t.neck.y + 10*h);
+                        ctx.lineTo(t.pelvis.x + (f * hipW * 0.2), t.pelvis.y - 5*h);
+                        ctx.stroke();
+                    }
+                }
+
                 // Front Leg
-                drawDetailedLimb(t.pelvis, t.fFoot, f, legLength, 12, outline, skin);
+                drawDetailedLimb(t.pelvis, t.fFoot, -f, legLength, thighW, calfW, jointW, 0, outline, skin);
 
                 // Front Arm (Bicep mutated)
-                let fBend = f;
-                if (this.state === 'block') fBend = -f;
-                drawDetailedLimb(t.neck, t.fHand, fBend, armLength, bicepW, outline, skin, true);
+                let fBend = f; // Bend backwards (elbows back)
+                drawDetailedLimb(t.neck, t.fHand, fBend, armLength, bicepW, forearmW, jointW, deltoidW, outline, skin, true);
 
                 // Front Glove
                 ctx.fillStyle = gloves;
@@ -700,11 +864,13 @@ ctx.restore();
             flying_kick:    { type: 'high', dmg: 30, cost: 45, dur: 800, reach: 100, active: [500, 650], isFlying: true }
         };
 
-        function initiateAttack(fighter, moveName) {
+        function initiateAttack(fighter, moveName, attackKey = null) {
             const move = moves[moveName];
-            if (fighter.stats.stamina >= move.cost && fighter.state !== 'hit' && fighter.state !== 'ko') {
-                fighter.stats.stamina -= move.cost;
+            const initialCost = move.cost * 0.5;
+            if (fighter.stats.stamina >= initialCost && fighter.state !== 'hit' && fighter.state !== 'ko') {
+                fighter.stats.stamina -= initialCost;
                 fighter.changeState(moveName, move.dur, move);
+                fighter.attackKey = attackKey;
                 fighter.keyReleased = false; // Prevent holding button
 
                 // Add forward momentum for flying moves
@@ -716,25 +882,48 @@ ctx.restore();
 
         let particles = [];
         function createParticles(x, y) {
-            for(let i=0; i<5; i++) {
+            // White impact flash
+            for(let i=0; i<3; i++) {
                 particles.push({
                     x: x, y: y,
-                    vx: (Math.random() - 0.5) * 10,
-                    vy: (Math.random() - 0.5) * 10 - 5,
-                    life: 1.0
+                    vx: (Math.random() - 0.5) * 15,
+                    vy: (Math.random() - 0.5) * 15,
+                    life: 1.0,
+                    type: 'impact'
+                });
+            }
+            // Blood splatter
+            for(let i=0; i<8; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() * -10), // Arc upwards
+                    life: 1.0 + Math.random(),
+                    type: 'blood'
                 });
             }
         }
 
         function drawParticles(ctx) {
-            ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
             for(let i=particles.length-1; i>=0; i--) {
                 let p = particles[i];
-                p.x += p.vx; p.y += p.vy;
-                p.life -= 0.05;
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.type === 'blood') {
+                    p.vy += 0.5; // Gravity for blood
+                    p.life -= 0.03;
+                    ctx.fillStyle = `rgba(180, 0, 0, ${p.life})`;
+                } else {
+                    p.life -= 0.1;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${p.life})`;
+                }
+
                 if(p.life <= 0) { particles.splice(i, 1); continue; }
+
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, p.life * 4, 0, Math.PI*2);
+                let size = p.type === 'blood' ? p.life * 3 : p.life * 5;
+                ctx.arc(p.x, p.y, size, 0, Math.PI*2);
                 ctx.fill();
             }
         }
@@ -786,6 +975,7 @@ ctx.restore();
                             } else {
                                 // Calculate Damage
                                 let dmg = move.dmg + (attacker.stats.power * 0.5);
+                                if (!attacker.isPowerAttack) dmg *= 0.5;
 
                                 // Blocking logic
                                 if (defender.state === 'block' || defender.state === 'low_block') {
@@ -881,15 +1071,15 @@ ctx.restore();
 
                 // Attacks (With Shift modifiers)
                 if (pFighter.isGrounded && ['idle','walk'].includes(pFighter.state) && pFighter.keyReleased) {
-                    if (keys.u) initiateAttack(pFighter, keys.shift ? 'body_jab' : 'jab');
-                    if (keys.i) initiateAttack(pFighter, keys.shift ? 'body_cross' : 'cross');
-                    if (keys.j) initiateAttack(pFighter, 'low_kick');
-                    if (keys.k) initiateAttack(pFighter, 'high_kick');
+                    if (keys.u) initiateAttack(pFighter, keys.shift ? 'body_jab' : 'jab', 'u');
+                    else if (keys.i) initiateAttack(pFighter, keys.shift ? 'body_cross' : 'cross', 'i');
+                    else if (keys.j) initiateAttack(pFighter, 'low_kick', 'j');
+                    else if (keys.k) initiateAttack(pFighter, 'high_kick', 'k');
                 } else if (!pFighter.isGrounded && pFighter.keyReleased) {
                     // Flying moves
-                    if (keys.i) initiateAttack(pFighter, 'superman_punch');
-                    if (keys.u || keys.j) initiateAttack(pFighter, 'flying_knee');
-                    if (keys.k) initiateAttack(pFighter, 'flying_kick');
+                    if (keys.i) initiateAttack(pFighter, 'superman_punch', 'i');
+                    else if (keys.u || keys.j) initiateAttack(pFighter, 'flying_knee', keys.u ? 'u' : 'j');
+                    else if (keys.k) initiateAttack(pFighter, 'flying_kick', 'k');
                 }
 
                 if (moving && pFighter.state === 'idle') pFighter.changeState('walk', 9999);
@@ -1013,20 +1203,17 @@ ctx.restore();
                 document.getElementById('ko-overlay').classList.add('opacity-0');
 
                 if (playerWon) {
-                    const opp = opponents[playerStats.rank];
+                    const opp = currentOpponentChoices[selectedOpponentIndex];
                     playerStats.money += opp.reward;
                     playerStats.rank++;
+                    currentOpponentChoices = [];
                     document.getElementById('result-title').textContent = "YOU WON!";
                     document.getElementById('result-title').className = "text-5xl font-black mb-4 text-green-500";
                     document.getElementById('result-money').textContent = opp.reward;
 
-                    if (playerStats.rank >= opponents.length) {
-                        document.getElementById('goat-screen').classList.remove('hidden');
-                    } else {
-                        document.getElementById('result-screen').classList.remove('hidden');
-                    }
+                    document.getElementById('result-screen').classList.remove('hidden');
                 } else {
-                    const opp = opponents[playerStats.rank];
+                    const opp = currentOpponentChoices[selectedOpponentIndex];
                     const loserBonus = Math.floor(opp.reward * 0.25); // Give 25% of reward for losing
                     playerStats.money += loserBonus;
 
@@ -1039,23 +1226,124 @@ ctx.restore();
         }
 
         // --- MENU LOGIC ---
+
+        function renderOpponentChoices() {
+            const container = document.getElementById('opponent-choices');
+            container.innerHTML = '';
+
+            currentOpponentChoices.forEach((opp, index) => {
+                const btn = document.createElement('button');
+
+                let diffText = "Medium";
+                let colorClass = "bg-yellow-600 hover:bg-yellow-500";
+                if (opp.difficultyMult < 0.9) {
+                    diffText = "Easy";
+                    colorClass = "bg-green-600 hover:bg-green-500";
+                } else if (opp.difficultyMult > 1.1) {
+                    diffText = "Hard";
+                    colorClass = "bg-red-600 hover:bg-red-500";
+                }
+
+                const isSelected = index === selectedOpponentIndex;
+                const borderClass = isSelected ? "border-4 border-white" : "border border-gray-700 opacity-75";
+
+                btn.className = `w-full p-2 rounded flex justify-between items-center transition text-white ${colorClass} ${borderClass}`;
+                btn.innerHTML = `
+                    <span class="font-bold">${opp.name}</span>
+                    <span class="text-xs font-bold uppercase tracking-widest bg-black bg-opacity-50 px-2 py-1 rounded">${diffText}</span>
+                `;
+
+                btn.onclick = () => {
+                    selectedOpponentIndex = index;
+                    renderOpponentChoices();
+                };
+
+                container.appendChild(btn);
+            });
+
+            const opp = currentOpponentChoices[selectedOpponentIndex];
+            document.getElementById('opp-name').textContent = opp.name;
+            document.getElementById('opp-desc').textContent = opp.desc;
+            document.getElementById('opp-reward').textContent = opp.reward;
+
+            document.getElementById('opp-hp').textContent = opp.stats.maxHp;
+            document.getElementById('opp-pow').textContent = opp.stats.power;
+            document.getElementById('opp-def').textContent = opp.stats.defense;
+            document.getElementById('opp-stam').textContent = opp.stats.maxStamina;
+
+            document.getElementById('my-hp').textContent = playerStats.maxHp;
+            document.getElementById('my-pow').textContent = playerStats.power;
+            document.getElementById('my-def').textContent = playerStats.defense;
+            document.getElementById('my-stam').textContent = playerStats.maxStamina;
+        }
+
         function updateGymUI() {
             document.getElementById('player-money').textContent = playerStats.money;
 
-            if (playerStats.rank < opponents.length) {
-                const opp = opponents[playerStats.rank];
-                document.getElementById('opp-name').textContent = opp.name;
-                document.getElementById('opp-desc').textContent = opp.desc;
+            if (true) {
+                if (currentOpponentChoices.length === 0) {
+                    let baseIndex = playerStats.rank % opponents.length;
+                    let cycleMulti = 1 + Math.floor(playerStats.rank / opponents.length) * 0.5;
+                    let baseOpp = opponents[baseIndex];
+                    const numChoices = Math.floor(Math.random() * 3) + 3; // 3 to 5
+                    const fNames = ["Big", "Slippery", "Iron", "Crazy", "Fast", "Brutal", "Magic", "Lethal", "Smash", "Furious", "Venom", "Thunder", "Shadow", "Bone", "Grim", "Wild"];
+                    const lNames = ["Joe", "Mike", "Pete", "Dave", "Steve", "Bob", "Ray", "Tyson", "Lee", "Ali", "Crusher", "Reaper", "Maniac", "Fist", "Hawk", "Wolf"];
+                    const skins = ['#fcd34d', '#b45309', '#fca5a5', '#cbd5e1', '#111827', '#e2e8f0', '#8b5a2b', '#ffdead'];
+                    const hairColors = ['#000000', '#fbbf24', '#dc2626', '#ffffff', '#451a03', '#9ca3af', '#f59e0b'];
+                    const hStyles = ['short', 'bald', 'mohawk', 'afro', 'spiky'];
+                    const randColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+                    const descs = ["A tough challenger.", "Looking for a fight.", "A dangerous striker.", "Known for stamina.", "Has a strong chin.", "Quick on their feet.", "A rising star.", "Hard-hitting brawler.", "Technically sound fighter.", "Wild and unpredictable."];
 
-                document.getElementById('opp-hp').textContent = opp.stats.maxHp;
-                document.getElementById('opp-pow').textContent = opp.stats.power;
-                document.getElementById('opp-def').textContent = opp.stats.defense;
-                document.getElementById('opp-stam').textContent = opp.stats.maxStamina;
+                    for (let i = 0; i < numChoices; i++) {
+                        const diff = 0.7 + (Math.random() * 0.6);
+                        let newOpp = JSON.parse(JSON.stringify(baseOpp));
 
-                document.getElementById('my-hp').textContent = playerStats.maxHp;
-                document.getElementById('my-pow').textContent = playerStats.power;
-                document.getElementById('my-def').textContent = playerStats.defense;
-                document.getElementById('my-stam').textContent = playerStats.maxStamina;
+                        const rName = fNames[Math.floor(Math.random() * fNames.length)] + " " + lNames[Math.floor(Math.random() * lNames.length)];
+                        const diffName = diff < 0.9 ? "Weak " : (diff > 1.1 ? "Elite " : "");
+                        newOpp.name = `${diffName}${rName} ${playerStats.rank >= opponents.length ? "V" + (Math.floor(playerStats.rank / opponents.length) + 1) : ""}`.trim();
+                        newOpp.desc = descs[Math.floor(Math.random() * descs.length)];
+
+                        let hpMult = 1, powMult = 1, defMult = 1, stamMult = 1, regenMult = 1;
+                        let r = Math.random();
+                        if (r < 0.25) { // Tank
+                            hpMult = 1.3; defMult = 1.3; powMult = 0.8; stamMult = 0.9;
+                        } else if (r < 0.5) { // Glass Cannon
+                            hpMult = 0.7; defMult = 0.7; powMult = 1.4; stamMult = 0.9;
+                        } else if (r < 0.75) { // Cardio machine
+                            hpMult = 0.9; defMult = 0.9; powMult = 0.8; stamMult = 1.3; regenMult = 1.3;
+                        } // else Balanced (1.0)
+
+                        // Add some noise
+                        hpMult *= 0.9 + Math.random() * 0.2;
+                        powMult *= 0.9 + Math.random() * 0.2;
+                        defMult *= 0.9 + Math.random() * 0.2;
+                        stamMult *= 0.9 + Math.random() * 0.2;
+                        regenMult *= 0.9 + Math.random() * 0.2;
+
+                        newOpp.stats.maxHp = Math.floor(baseOpp.stats.maxHp * diff * cycleMulti * hpMult);
+                        newOpp.stats.power = Math.floor(baseOpp.stats.power * diff * cycleMulti * powMult);
+                        newOpp.stats.defense = Math.floor(baseOpp.stats.defense * diff * cycleMulti * defMult);
+                        newOpp.stats.maxStamina = Math.floor(baseOpp.stats.maxStamina * diff * cycleMulti * stamMult);
+                        newOpp.stats.staminaRegen = Math.floor(baseOpp.stats.staminaRegen * diff * (1 + (cycleMulti-1)*0.1) * regenMult);
+
+                        newOpp.appearance = {
+                            h: 0.8 + Math.random() * 0.4,
+                            w: 0.8 + Math.random() * 0.4,
+                            skin: skins[Math.floor(Math.random() * skins.length)],
+                            shorts: randColor(),
+                            gloves: randColor(),
+                            hairstyle: hStyles[Math.floor(Math.random() * hStyles.length)],
+                            haircolor: hairColors[Math.floor(Math.random() * hairColors.length)]
+                        };
+
+                        newOpp.reward = Math.floor(newOpp.reward * diff * cycleMulti);
+                        newOpp.difficultyMult = diff;
+                        currentOpponentChoices.push(newOpp);
+                    }
+                    currentOpponentChoices.sort((a, b) => a.reward - b.reward);
+                    selectedOpponentIndex = 0;
+                }
+                renderOpponentChoices();
             }
 
             const container = document.getElementById('upgrades-container');
@@ -1082,8 +1370,9 @@ ctx.restore();
                         upgradeLevels[key]++;
 
                         if (key === 'botchedSurgery') {
-                            // Increases limb length drastically, reduces stamina
+                            // Increases limb length drastically, reduces stamina, increases height
                             playerStats.appearance.limbLengthMod = (playerStats.appearance.limbLengthMod || 0) + 20;
+                            playerStats.appearance.h = (playerStats.appearance.h || 1) + 0.05; // Make player taller
                             playerStats.maxStamina = Math.max(10, playerStats.maxStamina - 20); // Penalty
                             if (playerStats.stamina > playerStats.maxStamina) playerStats.stamina = playerStats.maxStamina;
                         } else {
@@ -1102,7 +1391,7 @@ ctx.restore();
             document.getElementById('combat-screen').classList.remove('hidden');
             document.getElementById('combat-screen').classList.add('flex');
 
-            const oppData = opponents[playerStats.rank];
+            const oppData = currentOpponentChoices[selectedOpponentIndex];
             document.getElementById('hud-opp-name').textContent = oppData.name.toUpperCase();
 
             pFighter = new Fighter(100, 0, 1, playerStats, true);
