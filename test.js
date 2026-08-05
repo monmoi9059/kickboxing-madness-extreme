@@ -6,7 +6,7 @@
             defense: 5,
             stamina: 100, maxStamina: 100, staminaRegen: 15, speedBonus: 0,
             neckGirth: 0, deltoidSize: 0, forearmSize: 0, thighSize: 0, calfSize: 0, chinSize: 0,
-            money: 0, rank: 0,
+            money: 0, rank: 0, losses: 0,
             appearance: { h: 1.0, w: 1.0, skin: '#e2e8f0', shorts: '#3b82f6', gloves: '#ef4444', hairstyle: 'short', haircolor: '#000000' }
         };
 
@@ -1206,6 +1206,7 @@ ctx.restore();
                     const opp = currentOpponentChoices[selectedOpponentIndex];
                     playerStats.money += opp.reward;
                     playerStats.rank++;
+                    playerStats.losses = 0; // Reset losses on win
                     currentOpponentChoices = [];
                     document.getElementById('result-title').textContent = "YOU WON!";
                     document.getElementById('result-title').className = "text-5xl font-black mb-4 text-green-500";
@@ -1216,6 +1217,9 @@ ctx.restore();
                     const opp = currentOpponentChoices[selectedOpponentIndex];
                     const loserBonus = Math.floor(opp.reward * 0.25); // Give 25% of reward for losing
                     playerStats.money += loserBonus;
+                    playerStats.rank = Math.max(0, playerStats.rank - 1);
+                    playerStats.losses = (playerStats.losses || 0) + 1; // Increment losses
+                    currentOpponentChoices = [];
 
                     document.getElementById('result-title').textContent = "KNOCKED OUT";
                     document.getElementById('result-title').className = "text-5xl font-black mb-4 text-red-500";
@@ -1295,8 +1299,13 @@ ctx.restore();
                     const descs = ["A tough challenger.", "Looking for a fight.", "A dangerous striker.", "Known for stamina.", "Has a strong chin.", "Quick on their feet.", "A rising star.", "Hard-hitting brawler.", "Technically sound fighter.", "Wild and unpredictable."];
 
                     for (let i = 0; i < numChoices; i++) {
-                        const diff = 0.7 + (Math.random() * 0.6);
-                        let newOpp = JSON.parse(JSON.stringify(baseOpp));
+                        let diff = 0.7 + (Math.random() * 0.6);
+                        if (playerStats.losses && playerStats.losses > 0) {
+                            diff *= Math.pow(0.8, playerStats.losses); // Weaker opponents and lower rewards if lost
+                        }
+
+                        let randBaseIndex = Math.floor(Math.random() * opponents.length);
+                        let newOpp = JSON.parse(JSON.stringify(opponents[randBaseIndex]));
 
                         const rName = fNames[Math.floor(Math.random() * fNames.length)] + " " + lNames[Math.floor(Math.random() * lNames.length)];
                         const diffName = diff < 0.9 ? "Weak " : (diff > 1.1 ? "Elite " : "");
@@ -1320,15 +1329,15 @@ ctx.restore();
                         stamMult *= 0.9 + Math.random() * 0.2;
                         regenMult *= 0.9 + Math.random() * 0.2;
 
-                        newOpp.stats.maxHp = Math.floor(baseOpp.stats.maxHp * diff * cycleMulti * hpMult);
-                        newOpp.stats.power = Math.floor(baseOpp.stats.power * diff * cycleMulti * powMult);
-                        newOpp.stats.defense = Math.floor(baseOpp.stats.defense * diff * cycleMulti * defMult);
-                        newOpp.stats.maxStamina = Math.floor(baseOpp.stats.maxStamina * diff * cycleMulti * stamMult);
-                        newOpp.stats.staminaRegen = Math.floor(baseOpp.stats.staminaRegen * diff * (1 + (cycleMulti-1)*0.1) * regenMult);
+                        newOpp.stats.maxHp = Math.floor(newOpp.stats.maxHp * diff * cycleMulti * hpMult);
+                        newOpp.stats.power = Math.floor(newOpp.stats.power * diff * cycleMulti * powMult);
+                        newOpp.stats.defense = Math.floor(newOpp.stats.defense * diff * cycleMulti * defMult);
+                        newOpp.stats.maxStamina = Math.floor(newOpp.stats.maxStamina * diff * cycleMulti * stamMult);
+                        newOpp.stats.staminaRegen = Math.floor(newOpp.stats.staminaRegen * diff * (1 + (cycleMulti-1)*0.1) * regenMult);
 
                         newOpp.appearance = {
-                            h: 0.8 + Math.random() * 0.4,
-                            w: 0.8 + Math.random() * 0.4,
+                            h: 0.7 + Math.random() * 0.6, // Wider range of heights
+                            w: 0.7 + Math.random() * 0.7, // Wider range of widths
                             skin: skins[Math.floor(Math.random() * skins.length)],
                             shorts: randColor(),
                             gloves: randColor(),
