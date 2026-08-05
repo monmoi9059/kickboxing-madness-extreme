@@ -169,8 +169,6 @@
                 this.currentMove = null;
                 this.hasHit = false;
                 this.lastBlockTime = 0;
-                this.attackHoldTime = 0;
-                this.isPowerAttack = false;
 
                 this.joints = {
                     head: {x: 0, y: -70}, neck: {x: 0, y: -50}, pelvis: {x: 0, y: 10},
@@ -215,28 +213,6 @@
 
                 // Timers & Stamina
                 this.animTime += dt;
-
-                // Power attack check
-                if (this.currentMove && this.attackKey && !this.hasHit) {
-                    // Check if the key that initiated the attack is still held down
-                    let keyHeld = false;
-                    if (this.isPlayer) {
-                        // For player, check actual key state
-                        keyHeld = keys[this.attackKey];
-                    } else {
-                        // AI holds attacks randomly for 150ms sometimes
-                        if (this.aiHoldDuration === undefined) this.aiHoldDuration = Math.random() < 0.3 ? 150 : 0;
-                        keyHeld = this.attackHoldTime < this.aiHoldDuration;
-                    }
-
-                    if (keyHeld) {
-                        this.attackHoldTime += dt;
-                        if (this.attackHoldTime >= 100) {
-                            this.isPowerAttack = true;
-                        }
-                    }
-                }
-
                 if (this.stateTimer > 0) {
                     this.stateTimer -= dt;
                     if (this.stateTimer <= 0 && this.state !== 'ko') {
@@ -336,11 +312,16 @@
                         baseT.bFoot.y -= stepHeight;
                     }
 
-                    baseT.pelvis.y -= Math.abs(stride) * 0.2;
+                    // Dynamic pelvis drop to force knees to bend instead of stiff legs
+                    baseT.pelvis.y += Math.abs(stride) * 0.3;
+
+                    // Natural arm swing counter to leg movement
                     baseT.fHand.x += stride * 0.2 * f;
                     baseT.fHand.y -= stepHeight * 0.5;
                     baseT.bHand.x -= stride * 0.2 * f;
                     baseT.bHand.y -= stepHeight * 0.5;
+
+                    // Head bob
                     baseT.head.y -= stepHeight * 0.3;
                 }
 
@@ -358,42 +339,84 @@
                     attackIntensity = Math.sin(p * Math.PI) * animScale;
 
                     if (this.state === 'jab') {
-                        targetT.fHand = {x: 120*f*w, y: -65*h}; // Extended past max reach to force full extension
+                        targetT.fHand = {x: 120*f*w, y: -65*h};
                         targetT.bHand = {x: 0, y: -60*h}; // Guard high
                         targetT.head.x += 10*f;
                         targetT.pelvis.x += 5*f; targetT.pelvis.y -= 5*h; // Plant down slightly
                         targetT.fFoot.x += 5*f; // Slight step
                         targetT.bKnee.x += 10*f; // Slight rotation
+
+                        if (this.isPowerAttack) {
+                            targetT.pelvis.x += 10*f;
+                            targetT.head.y -= 5*h;
+                            targetT.bHand.x -= 10*f;
+                            targetT.fHand.x += 10*f;
+                        }
                     } else if (this.state === 'cross') {
-                        targetT.bHand = {x: 130*f*w, y: -60*h}; // Extended past max reach
+                        targetT.bHand = {x: 130*f*w, y: -60*h};
                         targetT.fHand = {x: -15*f*w, y: -65*h}; // Pull back guard
                         targetT.head.x += 20*f; targetT.head.y -= 5*h;
                         targetT.pelvis.x += 25*f; // Deep rotation
                         targetT.bKnee.x += 25*f; // Back hip turns over
                         targetT.bFoot.x += 15*f; targetT.bFoot.y -= 5*h; // Pivot on ball of back foot
                         targetT.fKnee.x -= 10*f; // Front hip pulls back
+
+                        if (this.isPowerAttack) {
+                            targetT.pelvis.x += 15*f;
+                            targetT.pelvis.y += 10*h;
+                            targetT.bHand.x += 15*f;
+                            targetT.fHand.x -= 20*f;
+                            targetT.head.x += 15*f;
+                        }
                     } else if (this.state === 'body_jab') {
                         targetT.pelvis.y += 35*h; targetT.head.y += 35*h;
                         targetT.head.x += 15*f;
-                        targetT.fHand = {x: 110*f*w, y: -5*h}; // Extended past max reach
+                        targetT.fHand = {x: 110*f*w, y: -5*h};
                         targetT.bHand = {x: 0, y: -45*h};
                         targetT.fKnee.x += 15*f; targetT.fFoot.x += 10*f;
+
+                        if (this.isPowerAttack) {
+                            targetT.pelvis.y += 15*h;
+                            targetT.head.y += 15*h;
+                            targetT.fHand.x += 10*f;
+                        }
                     } else if (this.state === 'body_cross') {
                         targetT.pelvis.y += 35*h; targetT.head.y += 35*h;
                         targetT.pelvis.x += 25*f; targetT.head.x += 20*f;
-                        targetT.bHand = {x: 120*f*w, y: -5*h}; // Extended past max reach
+                        targetT.bHand = {x: 120*f*w, y: -5*h};
                         targetT.fHand = {x: -15*f*w, y: -45*h};
                         targetT.bKnee.x += 20*f; targetT.bFoot.x += 10*f; targetT.bFoot.y -= 5*h; // Pivot
+
+                        if (this.isPowerAttack) {
+                            targetT.pelvis.y += 15*h;
+                            targetT.pelvis.x += 10*f;
+                            targetT.bHand.x += 15*f;
+                            targetT.head.x += 10*f;
+                        }
                     } else if (this.state === 'low_kick') {
-                        targetT.bFoot = {x: 110*f*w, y: 65*h}; // Extended past max reach
+                        targetT.bFoot = {x: 110*f*w, y: 65*h};
                         targetT.pelvis.x -= 15*f; targetT.head.x -= 20*f; targetT.head.y += 5*h;
                         targetT.fHand.x -= 25*f; targetT.bHand.x += 35*f; // Big arm swing for torque
                         targetT.fFoot.x -= 10*f; // Plant foot steps out
+
+                        if (this.isPowerAttack) {
+                            targetT.bFoot.x += 15*f;
+                            targetT.pelvis.x -= 10*f;
+                            targetT.fHand.x -= 15*f;
+                            targetT.bHand.x += 20*f; // Extra torque
+                        }
                     } else if (this.state === 'high_kick') {
-                        targetT.bFoot = {x: 120*f*w, y: -75*h}; // Extended past max reach
+                        targetT.bFoot = {x: 120*f*w, y: -75*h};
                         targetT.pelvis.x -= 25*f; targetT.head.x -= 35*f; targetT.head.y += 15*h; // Deep lean back
                         targetT.fHand.x -= 30*f; targetT.bHand.x += 45*f; // Whip arms
                         targetT.fFoot.x -= 15*f; // Plant foot steps out
+
+                        if (this.isPowerAttack) {
+                            targetT.bFoot.x += 15*f;
+                            targetT.bFoot.y -= 20*h; // Higher
+                            targetT.head.y += 10*h;
+                            targetT.head.x -= 15*f; // Deeper lean
+                        }
                     } else if (this.state === 'superman_punch') {
                         // Launch forward, back leg kicks out behind, back hand strikes
                         targetT.pelvis.y -= 30*h; targetT.head.y -= 25*h; targetT.head.x += 35*f;
@@ -414,7 +437,7 @@
                         targetT.fFoot = {x: -35*f*w, y: 40*h}; // Tuck front
                         targetT.bFoot = {x: 110*f*w, y: -45*h}; // Extend back fully
                         targetT.fHand.x -= 35*f; targetT.bHand.x += 45*f; // Arm swing
-                    }} else if (this.state === 'block') {
+                    } else if (this.state === 'block') {
                     targetT.fHand = {x: 15*f*w, y: -65*h};
                     targetT.bHand = {x: 0, y: -70*h};
                     targetT.head.x -= 12*f; targetT.head.y += 8*h;
@@ -701,8 +724,9 @@
                 ctx.beginPath();
                 ctx.moveTo(t.pelvis.x - hipW/2 - 2, t.pelvis.y - 10*h);
                 ctx.lineTo(t.pelvis.x + hipW/2 + 2, t.pelvis.y - 10*h);
-                ctx.lineTo(t.pelvis.x + hipW/2, t.pelvis.y + 20*h);
-                ctx.lineTo(t.pelvis.x - hipW/2, t.pelvis.y + 20*h);
+                // Extend the shorts further down the leg
+                ctx.lineTo(t.pelvis.x + hipW/2 + 5, t.pelvis.y + 40*h);
+                ctx.lineTo(t.pelvis.x - hipW/2 - 5, t.pelvis.y + 40*h);
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
 
@@ -742,8 +766,48 @@
                 // Place eye on the front half of the face
                 let eyeX = t.head.x + (f * headRadius * 0.4);
                 let eyeY = t.head.y - headRadius * 0.1;
-                ctx.arc(eyeX, eyeY, headRadius*0.15, 0, Math.PI*2);
+                // Add some detail to the eye, not just a circle
+                // Draw sclera
+                ctx.fillStyle = 'white';
+                ctx.ellipse(eyeX, eyeY, headRadius*0.2, headRadius*0.1, 0, 0, Math.PI*2);
                 ctx.fill();
+                // Draw pupil
+                ctx.fillStyle = 'rgba(0,0,0,0.9)';
+                ctx.beginPath();
+                ctx.arc(eyeX + (f * headRadius*0.05), eyeY, headRadius*0.08, 0, Math.PI*2);
+                ctx.fill();
+
+                // Nose
+                ctx.fillStyle = skin;
+                ctx.strokeStyle = outline;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                let noseX = t.head.x + (f * headRadius * 0.95);
+                let noseY = t.head.y + headRadius * 0.2;
+                ctx.moveTo(t.head.x + (f * headRadius * 0.8), eyeY);
+                ctx.lineTo(noseX, noseY);
+                ctx.lineTo(t.head.x + (f * headRadius * 0.7), noseY + headRadius * 0.1);
+                ctx.stroke();
+
+                // Mouth/Lips
+                ctx.strokeStyle = 'rgba(100, 30, 30, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                let mouthX = t.head.x + (f * headRadius * 0.8);
+                let mouthY = t.head.y + headRadius * 0.6;
+                ctx.moveTo(mouthX, mouthY);
+                ctx.lineTo(mouthX - (f * headRadius * 0.3), mouthY);
+                ctx.stroke();
+
+                // Ear
+                ctx.fillStyle = skin;
+                ctx.strokeStyle = outline;
+                ctx.beginPath();
+                let earX = t.head.x - (f * headRadius * 0.2);
+                let earY = t.head.y;
+                ctx.ellipse(earX, earY, headRadius*0.15, headRadius*0.25, 0, 0, Math.PI*2);
+                ctx.fill();
+                ctx.stroke();
 
                 // Hair Rendering (adjusted for side profile)
                 const hStyle = app.hairstyle || 'bald';
@@ -896,8 +960,6 @@ ctx.restore();
                 fighter.changeState(moveName, move.dur, move);
                 fighter.attackKey = attackKey;
                 fighter.keyReleased = false; // Prevent holding button
-                fighter.attackHoldTime = 0;
-                fighter.isPowerAttack = false;
 
                 // Add forward momentum for flying moves
                 if (move.isFlying) {
@@ -1232,8 +1294,6 @@ ctx.restore();
                     const opp = currentOpponentChoices[selectedOpponentIndex];
                     playerStats.money += opp.reward;
                     playerStats.rank++;
-                    playerStats.wins = (playerStats.wins || 0) + 1; // Track wins
-                    playerStats.losses = 0; // Reset losses on win
                     currentOpponentChoices = [];
                     document.getElementById('result-title').textContent = "YOU WON!";
                     document.getElementById('result-title').className = "text-5xl font-black mb-4 text-green-500";
@@ -1244,9 +1304,6 @@ ctx.restore();
                     const opp = currentOpponentChoices[selectedOpponentIndex];
                     const loserBonus = Math.floor(opp.reward * 0.25); // Give 25% of reward for losing
                     playerStats.money += loserBonus;
-                    playerStats.rank = Math.max(0, playerStats.rank - 1);
-                    playerStats.losses = (playerStats.losses || 0) + 1; // Increment losses
-                    currentOpponentChoices = [];
 
                     document.getElementById('result-title').textContent = "KNOCKED OUT";
                     document.getElementById('result-title').className = "text-5xl font-black mb-4 text-red-500";
@@ -1356,15 +1413,15 @@ ctx.restore();
                         stamMult *= 0.9 + Math.random() * 0.2;
                         regenMult *= 0.9 + Math.random() * 0.2;
 
-                        newOpp.stats.maxHp = Math.floor(newOpp.stats.maxHp * diff * cycleMulti * hpMult);
-                        newOpp.stats.power = Math.floor(newOpp.stats.power * diff * cycleMulti * powMult);
-                        newOpp.stats.defense = Math.floor(newOpp.stats.defense * diff * cycleMulti * defMult);
-                        newOpp.stats.maxStamina = Math.floor(newOpp.stats.maxStamina * diff * cycleMulti * stamMult);
-                        newOpp.stats.staminaRegen = Math.floor(newOpp.stats.staminaRegen * diff * (1 + (cycleMulti-1)*0.1) * regenMult);
+                        newOpp.stats.maxHp = Math.floor(baseOpp.stats.maxHp * diff * cycleMulti * hpMult);
+                        newOpp.stats.power = Math.floor(baseOpp.stats.power * diff * cycleMulti * powMult);
+                        newOpp.stats.defense = Math.floor(baseOpp.stats.defense * diff * cycleMulti * defMult);
+                        newOpp.stats.maxStamina = Math.floor(baseOpp.stats.maxStamina * diff * cycleMulti * stamMult);
+                        newOpp.stats.staminaRegen = Math.floor(baseOpp.stats.staminaRegen * diff * (1 + (cycleMulti-1)*0.1) * regenMult);
 
                         newOpp.appearance = {
-                            h: 0.7 + Math.random() * 0.6, // Wider range of heights
-                            w: 0.7 + Math.random() * 0.7, // Wider range of widths
+                            h: 0.7 + Math.random() * 0.6,
+                            w: 0.7 + Math.random() * 0.7,
                             skin: skins[Math.floor(Math.random() * skins.length)],
                             shorts: randColor(),
                             gloves: randColor(),
