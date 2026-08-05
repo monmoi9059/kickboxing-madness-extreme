@@ -71,6 +71,10 @@
                                 <option value="mohawk">Mohawk</option>
                                 <option value="afro">Afro</option>
                                 <option value="spiky">Spiky</option>
+                                <option value="dreadlocks">Dreadlocks</option>
+                                <option value="mullet">Mullet</option>
+                                <option value="pompadour">Pompadour</option>
+                                <option value="long">Long Hair</option>
                             </select>
                         </div>
                         <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
@@ -401,6 +405,20 @@
                 // Speed is inversely proportional to weight. Heavier = slower. Taller = slightly slower to get moving.
                 // Base speed is 4.
                 this.speed = (4 * (1 / wScale) * (1 / ((hScale - 1) * 0.5 + 1))) + (stats.speedBonus || 0);
+
+                // Apply Muscle Bonus Stats
+                this.stats.maxHp += (this.stats.neckGirth || 0) * 2;
+                this.stats.maxHp += (this.stats.chinSize || 0) * 2;
+                this.stats.hp = this.stats.maxHp;
+
+                this.stats.power += (this.stats.deltoidSize || 0) * 0.5;
+                this.stats.defense += (this.stats.forearmSize || 0) * 0.5;
+                this.stats.defense += (this.stats.chinSize || 0) * 0.5;
+
+                this.stats.maxStamina += (this.stats.thighSize || 0) * 2;
+                this.stats.stamina = this.stats.maxStamina;
+
+                this.speed += (this.stats.calfSize || 0) * 0.2;
 
                 // Power is amplified by weight.
                 this.stats.power = this.stats.power * wScale;
@@ -1163,7 +1181,7 @@
                     ctx.stroke();
                 };
 
-                const drawDetailedLimb = (startJoint, endJoint, bendDir, limbLength, width, outlineCol, fillCol, hasTattoo = false) => {
+                const drawDetailedLimb = (startJoint, endJoint, bendDir, limbLength, upperWidth, lowerWidth, jointWidth, shoulderWidth, outlineCol, fillCol, hasTattoo = false) => {
                     let botchedLevel = app.limbLengthMod ? Math.floor(app.limbLengthMod / 20) : 0;
                     let jiggleX = 0; let jiggleY = 0;
                     if (botchedLevel > 0 && this.state !== 'ko') {
@@ -1192,35 +1210,74 @@
                     let midX = startJoint.x + Math.cos(midAngle) * l + jiggleX;
                     let midY = startJoint.y + Math.sin(midAngle) * l + jiggleY;
 
-                    // Tapered limbs: Upper limb is full width, lower limb is slightly thinner (0.8x)
-                    let lowerWidth = width * 0.75;
-
-                    // Helper to draw a segment
-                    const drawSegment = (p1x, p1y, p2x, p2y, w, col, isFill) => {
+                    // Helper to draw a muscular segment using bezier curves
+                    const drawMuscleSegment = (p1, p2, width1, width2, isUpper, isFill, bulgeFactor=1.2) => {
                         ctx.beginPath();
-                        ctx.lineCap = 'round';
-                        ctx.lineJoin = 'round';
-                        ctx.lineWidth = isFill ? w - 2 : w;
-                        ctx.strokeStyle = col;
-                        ctx.moveTo(p1x, p1y);
-                        ctx.lineTo(p2x, p2y);
-                        ctx.stroke();
+                        ctx.lineWidth = isFill ? 0 : 2; // We will fill a shape rather than stroke it thick
+                        ctx.strokeStyle = outlineCol;
+                        ctx.fillStyle = fillCol;
+
+                        // Calculate perpendicular vector for width
+                        let pdx = p2.x - p1.x;
+                        let pdy = p2.y - p1.y;
+                        let pdist = Math.sqrt(pdx*pdx + pdy*pdy);
+                        if (pdist === 0) return;
+                        let nx = -pdy / pdist;
+                        let ny = pdx / pdist;
+
+                        // Points
+                        let p1L = {x: p1.x + nx * width1/2, y: p1.y + ny * width1/2};
+                        let p1R = {x: p1.x - nx * width1/2, y: p1.y - ny * width1/2};
+                        let p2L = {x: p2.x + nx * width2/2, y: p2.y + ny * width2/2};
+                        let p2R = {x: p2.x - nx * width2/2, y: p2.y - ny * width2/2};
+
+                        // Midpoint for curve control
+                        let m = {x: (p1.x + p2.x)/2, y: (p1.y + p2.y)/2};
+
+                        // Control points for muscle bulge
+                        let bulgeL = {x: m.x + nx * ((width1+width2)/2 * bulgeFactor), y: m.y + ny * ((width1+width2)/2 * bulgeFactor)};
+                        let bulgeR = {x: m.x - nx * ((width1+width2)/2 * bulgeFactor), y: m.y - ny * ((width1+width2)/2 * bulgeFactor)};
+
+                        // If it's the upper segment, taper into the shoulder/hip
+                        if (isUpper && shoulderWidth > 0) {
+                           p1L = {x: p1.x + nx * shoulderWidth/2, y: p1.y + ny * shoulderWidth/2};
+                           p1R = {x: p1.x - nx * shoulderWidth/2, y: p1.y - ny * shoulderWidth/2};
+                        }
+
+                        ctx.moveTo(p1L.x, p1L.y);
+                        // Left side curve (bicep/quad bulge)
+                        ctx.quadraticCurveTo(bulgeL.x, bulgeL.y, p2L.x, p2L.y);
+
+                        // End cap (joint)
+                        ctx.lineTo(p2R.x, p2R.y);
+
+                        // Right side curve (tricep/hamstring bulge)
+                        ctx.quadraticCurveTo(bulgeR.x, bulgeR.y, p1R.x, p1R.y);
+
+                        ctx.closePath();
+                        if (isFill) {
+                            ctx.fill();
+                        } else {
+                            ctx.stroke();
+                        }
                     };
 
-                    // Draw Outline
-                    drawSegment(startJoint.x, startJoint.y, midX, midY, width, outlineCol, false);
-                    drawSegment(midX, midY, endJoint.x, endJoint.y, lowerWidth, outlineCol, false);
+                    // Draw Outline first
+                    drawMuscleSegment(startJoint, {x:midX, y:midY}, upperWidth, jointWidth, true, false, 1.25);
+                    drawMuscleSegment({x:midX, y:midY}, endJoint, lowerWidth, jointWidth*0.8, false, false, 1.15);
 
-                    // Draw Fill (using arc trick to make a smooth elbow/knee joint)
-                    drawSegment(startJoint.x, startJoint.y, midX, midY, width, fillCol, true);
+                    // Draw Fill
+                    drawMuscleSegment(startJoint, {x:midX, y:midY}, upperWidth, jointWidth, true, true, 1.25);
+                    drawMuscleSegment({x:midX, y:midY}, endJoint, lowerWidth, jointWidth*0.8, false, true, 1.15);
 
-                    // Draw a circle at the joint to smooth the transition
+                    // Smooth the joint connection
                     ctx.fillStyle = fillCol;
+                    ctx.strokeStyle = outlineCol;
+                    ctx.lineWidth = 2;
                     ctx.beginPath();
-                    ctx.arc(midX, midY, (width-2)/2, 0, Math.PI*2);
+                    ctx.arc(midX, midY, jointWidth/2, 0, Math.PI*2);
                     ctx.fill();
-
-                    drawSegment(midX, midY, endJoint.x, endJoint.y, lowerWidth, fillCol, true);
+                    // Optional: only stroke the joint on the outside depending on bend, but drawing full circle works well enough in 2D
 
                     // Tattoos on Upper Arm
                     if (hasTattoo && tattoo !== 'none') {
@@ -1236,17 +1293,17 @@
                             ctx.lineTo(tX2, tY2);
                             ctx.stroke();
                         }
-                    } // Fixed missing brace here
+                    }
 
                     // Botched Stitches!
                     if (botchedLevel > 0) {
                         ctx.strokeStyle = 'red';
                         ctx.lineWidth = 1.5;
                         ctx.beginPath();
-                        ctx.moveTo(midX - width/2, midY - 5);
-                        ctx.lineTo(midX + width/2, midY + 5);
-                        ctx.moveTo(midX - width/2, midY + 5);
-                        ctx.lineTo(midX + width/2, midY - 5);
+                        ctx.moveTo(midX - jointWidth/2, midY - 5);
+                        ctx.lineTo(midX + jointWidth/2, midY + 5);
+                        ctx.moveTo(midX - jointWidth/2, midY + 5);
+                        ctx.lineTo(midX + jointWidth/2, midY - 5);
                         ctx.stroke();
 
                         if (botchedLevel > 1) {
@@ -1283,53 +1340,98 @@
                 let hipW = Math.max(20, chestW * 0.85);
 
                 // Draw Neck
+                const headRadius = 16 * ((h+w)/2);
                 ctx.fillStyle = skin;
                 ctx.strokeStyle = outline;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                // Neck connects t.neck to base of head
-                ctx.moveTo(t.neck.x - neckW/2, t.neck.y + 5*h);
-                ctx.lineTo(t.neck.x + neckW/2, t.neck.y + 5*h);
-                ctx.lineTo(t.head.x + neckW/2, t.head.y);
-                ctx.lineTo(t.head.x - neckW/2, t.head.y);
+                ctx.moveTo(t.neck.x - neckW/2, t.neck.y + 10*h);
+                ctx.quadraticCurveTo(t.neck.x - neckW*0.3, t.neck.y - 5*h, t.head.x - neckW*0.2, t.head.y + headRadius*0.6);
+                ctx.lineTo(t.head.x + neckW*0.6, t.head.y + headRadius*0.6);
+                ctx.quadraticCurveTo(t.neck.x + neckW*0.4, t.neck.y - 5*h, t.neck.x + neckW/2, t.neck.y + 10*h);
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
 
-                // Draw Torso
+                // Draw Torso (More sculpted, realistic pecs/lats)
                 ctx.beginPath();
+                let upperChestW = chestW * 1.05;
+                let waistW = hipW * 0.9;
+
+                // Left shoulder/lat
                 ctx.moveTo(t.neck.x - trapsW, t.neck.y);
-                ctx.lineTo(t.neck.x + trapsW, t.neck.y);
                 let midY = (t.neck.y + t.pelvis.y) / 2;
-                ctx.quadraticCurveTo(t.neck.x + trapsW*0.9, midY, t.pelvis.x + hipW/2, t.pelvis.y);
-                ctx.lineTo(t.pelvis.x - hipW/2, t.pelvis.y);
-                ctx.quadraticCurveTo(t.neck.x - trapsW*0.9, midY, t.neck.x - trapsW, t.neck.y);
+                // Lat spread curve
+                ctx.bezierCurveTo(t.neck.x - upperChestW/2, t.neck.y + 15*h,
+                                  t.neck.x - waistW/2, midY,
+                                  t.pelvis.x - hipW/2, t.pelvis.y);
+                // Beltline
+                ctx.lineTo(t.pelvis.x + hipW/2, t.pelvis.y);
+                // Right lat/shoulder
+                ctx.bezierCurveTo(t.neck.x + waistW/2, midY,
+                                  t.neck.x + upperChestW/2, t.neck.y + 15*h,
+                                  t.neck.x + trapsW, t.neck.y);
+                // Traps bridging to neck
+                ctx.quadraticCurveTo(t.neck.x, t.neck.y - 10*h, t.neck.x - trapsW, t.neck.y);
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
+
+                // Draw Pecs (Pectoralis Major)
+                ctx.strokeStyle = outline;
+                ctx.lineWidth = 1.5;
+                ctx.globalAlpha = 0.5;
+                ctx.beginPath();
+                let pecY = t.neck.y + 25*h;
+                let pecDrop = 12*h;
+                // Left Pec
+                ctx.moveTo(t.neck.x, pecY);
+                ctx.quadraticCurveTo(t.neck.x - upperChestW*0.3, pecY + pecDrop, t.neck.x - upperChestW*0.4, t.neck.y + 12*h);
+                // Right Pec
+                ctx.moveTo(t.neck.x, pecY);
+                ctx.quadraticCurveTo(t.neck.x + upperChestW*0.3, pecY + pecDrop, t.neck.x + upperChestW*0.4, t.neck.y + 12*h);
+                // Cleavage line
+                ctx.moveTo(t.neck.x, t.neck.y + 10*h);
+                ctx.lineTo(t.neck.x, pecY);
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
 
                 // Chest Tattoo
                 if (tattoo === 'chest_piece') {
                     ctx.fillStyle = 'rgba(0,0,0,0.4)';
                     ctx.beginPath();
                     ctx.moveTo(t.neck.x, t.neck.y + 10);
-                    ctx.lineTo(t.neck.x - trapsW*0.6, t.neck.y + 25);
-                    ctx.lineTo(t.neck.x, t.neck.y + 40);
-                    ctx.lineTo(t.neck.x + trapsW*0.6, t.neck.y + 25);
+                    ctx.quadraticCurveTo(t.neck.x - trapsW*0.5, t.neck.y + 15, t.neck.x - trapsW*0.6, t.neck.y + 25);
+                    ctx.quadraticCurveTo(t.neck.x, t.neck.y + 35, t.neck.x, t.neck.y + 40);
+                    ctx.quadraticCurveTo(t.neck.x, t.neck.y + 35, t.neck.x + trapsW*0.6, t.neck.y + 25);
+                    ctx.quadraticCurveTo(t.neck.x + trapsW*0.5, t.neck.y + 15, t.neck.x, t.neck.y + 10);
                     ctx.closePath();
                     ctx.fill();
                 }
 
-                // Six Pack (Stamina Mutation)
+                // Six Pack (Stamina Mutation) - more realistic sculpted abs
                 if (hasAbs && this.state !== 'ko') {
                     ctx.strokeStyle = outline;
                     ctx.lineWidth = 1.5;
-                    ctx.globalAlpha = 0.5;
-                    let absY = t.neck.y + 35;
+                    ctx.globalAlpha = 0.4;
+                    let absTop = t.neck.y + 32*h;
+                    let absBottom = t.pelvis.y - 8*h;
                     ctx.beginPath();
-                    // Center line
-                    ctx.moveTo(t.neck.x, absY); ctx.lineTo(t.pelvis.x, t.pelvis.y - 5);
-                    // Horizontal lines
-                    ctx.moveTo(t.neck.x - 5, absY + 5); ctx.lineTo(t.neck.x + 5, absY + 5);
-                    ctx.moveTo(t.neck.x - 6, absY + 15); ctx.lineTo(t.neck.x + 6, absY + 15);
+                    // Linea alba (center line)
+                    ctx.moveTo(t.neck.x, absTop);
+                    ctx.lineTo(t.pelvis.x, absBottom);
+
+                    let absW = hipW * 0.25;
+                    let numAbs = 3;
+                    let absSpacing = (absBottom - absTop) / numAbs;
+
+                    for(let i=1; i<numAbs; i++) {
+                        let y = absTop + (i * absSpacing);
+                        // Left block curve
+                        ctx.moveTo(t.neck.x, y);
+                        ctx.quadraticCurveTo(t.neck.x - absW, y - 3*h, t.neck.x - absW*1.2, y + 2*h);
+                        // Right block curve
+                        ctx.moveTo(t.neck.x, y);
+                        ctx.quadraticCurveTo(t.neck.x + absW, y - 3*h, t.neck.x + absW*1.2, y + 2*h);
+                    }
                     ctx.stroke();
                     ctx.globalAlpha = 1.0;
                 }
@@ -1339,42 +1441,55 @@
                 ctx.beginPath();
                 ctx.moveTo(t.pelvis.x - hipW/2 - 2, t.pelvis.y - 10*h);
                 ctx.lineTo(t.pelvis.x + hipW/2 + 2, t.pelvis.y - 10*h);
+                // Curve the bottom of the shorts for a 3D feel
                 ctx.lineTo(t.pelvis.x + hipW/2, t.pelvis.y + 20*h);
-                ctx.lineTo(t.pelvis.x - hipW/2, t.pelvis.y + 20*h);
+                ctx.quadraticCurveTo(t.pelvis.x, t.pelvis.y + 25*h, t.pelvis.x - hipW/2, t.pelvis.y + 20*h);
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
 
-                // Head
+                // Draw Head with More Complex/Realistic Side Profile
                 ctx.fillStyle = skin;
+                ctx.strokeStyle = outline;
+                ctx.lineWidth = 2;
                 ctx.beginPath();
-                const headRadius = 16 * ((h+w)/2);
-                // Make the head slightly oval to better represent a side profile
-                ctx.ellipse(t.head.x, t.head.y, headRadius*0.95, headRadius*1.1, 0, 0, Math.PI*2);
+
+                let hrX = headRadius * 0.9; // Horizontal radius
+                let hrY = headRadius * 1.05; // Vertical radius
+
+                // Start at top of forehead
+                ctx.moveTo(t.head.x, t.head.y - hrY);
+                // Back of head curve
+                ctx.bezierCurveTo(t.head.x - (f*hrX*1.2), t.head.y - hrY,
+                                  t.head.x - (f*hrX*1.2), t.head.y + hrY*0.6,
+                                  t.head.x - (f*hrX*0.4), t.head.y + hrY*0.9);
+                // Neck/Jaw transition
+                ctx.lineTo(t.head.x, t.head.y + hrY);
+
+                // Front profile: Chin, Mouth, Nose, Brow
+                let chinLevel = this.stats.chinSize || 0;
+                let chinExt = f * (hrX * 0.2 + (chinLevel * 3 * w));
+                let chinDrop = hrY * 0.1 + (chinLevel * 2 * h);
+
+                // Jaw to Chin
+                ctx.lineTo(t.head.x + (f*hrX*0.3) + chinExt, t.head.y + hrY + chinDrop);
+                // Chin to Lower Lip
+                ctx.quadraticCurveTo(t.head.x + (f*hrX*0.5) + chinExt, t.head.y + hrY*0.8,
+                                     t.head.x + (f*hrX*0.7), t.head.y + hrY*0.6);
+                // Lips
+                ctx.lineTo(t.head.x + (f*hrX*0.8), t.head.y + hrY*0.5); // Upper lip
+                // Nose
+                ctx.lineTo(t.head.x + (f*hrX*1.1), t.head.y + hrY*0.2); // Nose tip
+                ctx.lineTo(t.head.x + (f*hrX*0.8), t.head.y); // Nose bridge
+                // Brow ridge
+                ctx.quadraticCurveTo(t.head.x + (f*hrX*0.9), t.head.y - hrY*0.2,
+                                     t.head.x + (f*hrX*0.7), t.head.y - hrY*0.4);
+                // Forehead up to top
+                ctx.quadraticCurveTo(t.head.x + (f*hrX*0.5), t.head.y - hrY,
+                                     t.head.x, t.head.y - hrY);
+                ctx.closePath();
                 ctx.fill(); ctx.stroke();
 
-                // Mega Chad Chin
-                let chinLevel = this.stats.chinSize || 0;
-                if (chinLevel > 0) {
-                    ctx.fillStyle = skin;
-                    ctx.strokeStyle = outline;
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    // Extend chin forward and down
-                    let chinW = headRadius * 0.5 + (chinLevel * 3 * w);
-                    let chinH = headRadius * 0.3 + (chinLevel * 2 * h);
-
-                    let startX = t.head.x + (f * headRadius * 0.3);
-                    let startY = t.head.y + headRadius * 0.5;
-
-                    ctx.moveTo(startX, startY);
-                    ctx.lineTo(startX + (f * chinW), startY);
-                    ctx.lineTo(startX + (f * chinW * 0.9), startY + chinH);
-                    ctx.lineTo(t.head.x, startY + chinH * 0.8);
-                    ctx.closePath();
-                    ctx.fill(); ctx.stroke();
-                }
-
-                // Eye (to establish side profile)
+                // Eye (Realistic almond shape)
                 ctx.fillStyle = 'rgba(0,0,0,0.8)';
                 ctx.beginPath();
                 // Place eye on the front half of the face
@@ -1423,68 +1538,144 @@
                 ctx.fill();
                 ctx.stroke();
 
-                // Hair Rendering (adjusted for side profile)
+                // Eyebrow
+                ctx.strokeStyle = app.haircolor || '#000';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(eyeX - (f*eyeW), eyeY - eyeH*1.5);
+                ctx.quadraticCurveTo(eyeX, eyeY - eyeH*2, eyeX + (f*eyeW*1.2), eyeY - eyeH*1.2);
+                ctx.stroke();
+
+                // Hair Rendering with Simple Physics
                 const hStyle = app.hairstyle || 'bald';
                 if (hStyle !== 'bald') {
                     ctx.fillStyle = app.haircolor || '#000000';
+                    ctx.strokeStyle = app.haircolor || '#000000';
+
+                    // Simple physics variables derived from movement and state
+                    let sway = (this.vx || 0) * -2; // Moves opposite to velocity
+                    if (this.state === 'dodge') sway = f * -15; // Big sway on dodge
+                    if (this.state === 'hit') sway = f * 10;
+                    if (this.state === 'ko') sway = f * 25; // Fall back
+
+                    // Add bounce from breathing/idle
+                    let hairBounce = bounce * 0.5;
+
                     if (hStyle === 'short') {
                         ctx.beginPath();
-                        // Hair hugs the top and back of the head
                         let startA = f === 1 ? Math.PI*0.8 : Math.PI*0.2;
                         let endA = f === 1 ? Math.PI*2.1 : Math.PI*1.9;
-                        ctx.arc(t.head.x - (f * headRadius*0.1), t.head.y - headRadius*0.2, headRadius*1.05, startA, endA);
+                        ctx.arc(t.head.x - (f * hrX*0.1), t.head.y - hrY*0.2, hrX*1.05, startA, endA);
                         ctx.fill();
                     } else if (hStyle === 'mohawk') {
                         ctx.beginPath();
-                        // Mohawk spans from front-top to back-bottom
-                        ctx.moveTo(t.head.x + (f*headRadius*0.5), t.head.y - headRadius*0.8);
-                        ctx.lineTo(t.head.x, t.head.y - headRadius*2.2);
-                        ctx.lineTo(t.head.x - (f*headRadius*0.8), t.head.y - headRadius*0.2);
+                        ctx.moveTo(t.head.x + (f*hrX*0.5), t.head.y - hrY*0.8);
+                        // The tip of the mohawk sways
+                        let tipX = t.head.x + sway*0.5;
+                        ctx.quadraticCurveTo(t.head.x + sway*0.2, t.head.y - hrY*2.5, t.head.x - (f*hrX*0.8), t.head.y - hrY*0.2);
+                        ctx.quadraticCurveTo(t.head.x - (f*hrX*0.4), t.head.y - hrY*1.5, t.head.x + (f*hrX*0.5), t.head.y - hrY*0.8);
                         ctx.fill();
                     } else if (hStyle === 'afro') {
                         ctx.beginPath();
-                        // Shift afro slightly back for side profile
-                        ctx.arc(t.head.x - (f*headRadius*0.2), t.head.y - headRadius*0.6, headRadius*1.4, 0, Math.PI*2);
+                        // Afro lags behind movement slightly (squash and stretch)
+                        let stretch = Math.abs(sway) * 0.5;
+                        ctx.ellipse(t.head.x - (f*hrX*0.2) + sway*0.2, t.head.y - hrY*0.6 + hairBounce,
+                                    hrX*1.4 + stretch, hrY*1.4 - stretch*0.5,
+                                    0, 0, Math.PI*2);
+                        // Bumpy texture
+                        for(let i=0; i<8; i++) {
+                            let angle = (i/8) * Math.PI*2;
+                            ctx.arc(t.head.x - (f*hrX*0.2) + sway*0.2 + Math.cos(angle)*hrX*1.2,
+                                    t.head.y - hrY*0.6 + hairBounce + Math.sin(angle)*hrY*1.2,
+                                    hrX*0.4, 0, Math.PI*2);
+                        }
                         ctx.fill();
                     } else if (hStyle === 'spiky') {
                         ctx.beginPath();
-                        // Spikes angled backward
                         for(let s = -0.5; s <= 1; s += 0.4) {
-                            let spikeX = t.head.x - (f * s * headRadius);
-                            let spikeTipX = spikeX - (f * headRadius * 0.5);
-                            ctx.moveTo(spikeX + headRadius*0.2, t.head.y - headRadius*0.6);
-                            ctx.lineTo(spikeTipX, t.head.y - headRadius*1.8);
-                            ctx.lineTo(spikeX - headRadius*0.2, t.head.y - headRadius*0.6);
+                            let spikeX = t.head.x - (f * s * hrX);
+                            let spikeTipX = spikeX - (f * hrX * 0.6) + sway;
+                            ctx.moveTo(spikeX + hrX*0.2, t.head.y - hrY*0.6);
+                            ctx.quadraticCurveTo(spikeTipX + (f*hrX*0.2), t.head.y - hrY*1.4, spikeTipX, t.head.y - hrY*1.9 + hairBounce);
+                            ctx.quadraticCurveTo(spikeX, t.head.y - hrY*1.0, spikeX - hrX*0.2, t.head.y - hrY*0.6);
                         }
+                        ctx.fill();
+                    } else if (hStyle === 'dreadlocks') {
+                        ctx.lineWidth = hrX * 0.3;
+                        ctx.lineCap = 'round';
+                        for(let i = -1; i <= 1.5; i += 0.5) {
+                            ctx.beginPath();
+                            let rootX = t.head.x - (f * i * hrX * 0.8);
+                            let rootY = t.head.y - hrY * 0.8;
+                            ctx.moveTo(rootX, rootY);
+                            // Dreads hang down and sway heavily
+                            let endX = rootX + sway * (1.5 + Math.random());
+                            let endY = rootY + hrY * 2.5 + hairBounce * 2;
+                            let cp1X = rootX + sway*0.5;
+                            let cp1Y = rootY + hrY;
+                            ctx.quadraticCurveTo(cp1X, cp1Y, endX, endY);
+                            ctx.stroke();
+                        }
+                    } else if (hStyle === 'mullet') {
+                        // Business in front
+                        ctx.beginPath();
+                        ctx.arc(t.head.x - (f * hrX*0.1), t.head.y - hrY*0.4, hrX*1.05, Math.PI*0.8, Math.PI*2.2);
+                        ctx.fill();
+                        // Party in back (swaying)
+                        ctx.beginPath();
+                        let backRootX = t.head.x - (f * hrX * 1.0);
+                        let backRootY = t.head.y - hrY * 0.2;
+                        ctx.moveTo(backRootX, backRootY);
+                        ctx.quadraticCurveTo(backRootX + sway*1.5, backRootY + hrY*1.5, backRootX - (f*hrX*0.5) + sway, backRootY + hrY*2.5);
+                        ctx.lineTo(t.head.x - (f * hrX * 0.5), t.head.y + hrY * 0.5);
+                        ctx.fill();
+                    } else if (hStyle === 'pompadour') {
+                        ctx.beginPath();
+                        // Big slicked back curve
+                        ctx.moveTo(t.head.x + (f*hrX*0.8), t.head.y - hrY*0.5);
+                        // Front swoop that bounces
+                        ctx.bezierCurveTo(t.head.x + (f*hrX*1.5) + sway*0.2, t.head.y - hrY*2.5 + hairBounce,
+                                          t.head.x - (f*hrX*0.5) + sway*0.5, t.head.y - hrY*2.5,
+                                          t.head.x - (f*hrX*1.2), t.head.y - hrY*0.2);
+                        // Back into the neck
+                        ctx.quadraticCurveTo(t.head.x - (f*hrX*0.8), t.head.y - hrY, t.head.x + (f*hrX*0.8), t.head.y - hrY*0.5);
+                        ctx.fill();
+                    } else if (hStyle === 'long') {
+                        ctx.beginPath();
+                        // Hair line
+                        ctx.moveTo(t.head.x + (f*hrX*0.5), t.head.y - hrY*0.8);
+                        // Flowing back and down
+                        ctx.quadraticCurveTo(t.head.x - (f*hrX) + sway*0.5, t.head.y - hrY,
+                                             t.head.x - (f*hrX*1.5) + sway*1.5, t.head.y + hrY*1.5 + hairBounce);
+                        // Bottom edge of hair
+                        ctx.quadraticCurveTo(t.head.x - (f*hrX) + sway, t.head.y + hrY*2,
+                                             t.head.x - (f*hrX*0.5), t.head.y + hrY);
                         ctx.fill();
                     }
                 }
 
-                // Facial Hair (adjusted for side profile)
+                // Facial Hair
                 if (fHair !== 'none') {
                     ctx.fillStyle = app.haircolor || '#000000';
-                    let faceFrontX = t.head.x + (f * headRadius * 0.9);
-                    let chinY = t.head.y + headRadius * 0.9;
-                    let jawX = t.head.x;
+                    let chinY = t.head.y + hrY + chinDrop;
+                    let faceFrontX = t.head.x + (f*hrX*0.7);
 
                     if (fHair === 'beard') {
-                        // Traces jawline and chin
                         ctx.beginPath();
-                        ctx.moveTo(t.head.x + (f*headRadius*0.2), t.head.y);
-                        ctx.lineTo(faceFrontX, t.head.y + headRadius*0.5);
-                        ctx.lineTo(t.head.x + (f*headRadius*0.5), chinY + headRadius*0.2);
-                        ctx.lineTo(jawX - (f*headRadius*0.2), t.head.y + headRadius*0.8);
-                        ctx.lineTo(t.head.x - (f*headRadius*0.1), t.head.y + headRadius*0.2);
+                        ctx.moveTo(t.head.x + (f*hrX*0.2), t.head.y);
+                        ctx.quadraticCurveTo(faceFrontX, t.head.y + hrY*0.5, t.head.x + (f*hrX*0.4) + chinExt, chinY + hrY*0.1);
+                        ctx.lineTo(t.head.x, chinY);
+                        ctx.quadraticCurveTo(t.head.x - (f*hrX*0.4), t.head.y + hrY*0.8, t.head.x - (f*hrX*0.2), t.head.y);
                         ctx.fill();
                     } else if (fHair === 'mustache') {
-                        // Simple angled line above mouth
                         ctx.beginPath();
-                        ctx.ellipse(faceFrontX - (f*headRadius*0.1), t.head.y + headRadius*0.4, headRadius*0.4, headRadius*0.1, f === 1 ? Math.PI*0.1 : -Math.PI*0.1, 0, Math.PI*2);
+                        ctx.moveTo(faceFrontX - (f*hrX*0.2), t.head.y + hrY*0.3);
+                        ctx.quadraticCurveTo(faceFrontX + (f*hrX*0.3), t.head.y + hrY*0.3, faceFrontX + (f*hrX*0.1), t.head.y + hrY*0.5);
+                        ctx.lineTo(faceFrontX - (f*hrX*0.1), t.head.y + hrY*0.4);
                         ctx.fill();
                     } else if (fHair === 'goatee') {
-                        // Just on the chin
                         ctx.beginPath();
-                        ctx.arc(t.head.x + (f*headRadius*0.7), chinY, headRadius*0.35, 0, Math.PI*2);
+                        ctx.arc(t.head.x + (f*hrX*0.4) + chinExt, chinY - hrY*0.1, hrY*0.3, 0, Math.PI*2);
                         ctx.fill();
                     }
                 }
@@ -1492,37 +1683,28 @@
                 // Battle Damage (Bruises and Bleeding based on HP percentage)
                 let hpPercent = this.stats.hp / this.stats.maxHp;
                 if (hpPercent < 0.7) {
-                    let damageLevel = 1.0 - hpPercent; // 0.3 at 70%, 0.9 at 10%
+                    let damageLevel = 1.0 - hpPercent;
 
                     // Body bruising
-                    ctx.fillStyle = `rgba(75, 0, 130, ${damageLevel * 0.4})`; // Purple bruise
+                    ctx.fillStyle = `rgba(75, 0, 130, ${damageLevel * 0.4})`;
                     ctx.beginPath();
-                    ctx.ellipse(t.pelvis.x + (f * hipW*0.2), t.pelvis.y - 15*h, hipW*0.3, 10*h, 0, 0, Math.PI*2); // Ribs
+                    ctx.ellipse(t.pelvis.x + (f * hipW*0.2), t.pelvis.y - 15*h, hipW*0.3, 10*h, 0, 0, Math.PI*2);
                     ctx.fill();
 
-                    // Face bruising (black eye / swollen cheek)
+                    // Face bruising
                     ctx.fillStyle = `rgba(50, 0, 50, ${damageLevel * 0.5})`;
                     ctx.beginPath();
-                    ctx.arc(t.head.x + (f * headRadius * 0.5), t.head.y, headRadius*0.3, 0, Math.PI*2);
+                    ctx.ellipse(eyeX, eyeY + eyeH*1.5, eyeW*1.5, eyeH*1.5, 0, 0, Math.PI*2);
                     ctx.fill();
 
                     if (hpPercent < 0.4) {
-                        // Blood trickles
                         ctx.strokeStyle = `rgba(180, 0, 0, ${damageLevel * 0.8})`;
                         ctx.lineWidth = 2;
-
-                        // From nose/mouth
+                        // From nose
                         ctx.beginPath();
-                        ctx.moveTo(t.head.x + (f * headRadius * 0.8), t.head.y + headRadius*0.2);
-                        ctx.lineTo(t.head.x + (f * headRadius * 0.6), t.head.y + headRadius*0.7);
+                        ctx.moveTo(t.head.x + (f * hrX * 0.9), t.head.y + hrY*0.3);
+                        ctx.quadraticCurveTo(t.head.x + (f * hrX * 0.8), t.head.y + hrY*0.6, t.head.x + (f * hrX * 0.6), t.head.y + hrY*0.8);
                         ctx.stroke();
-
-                        // From eye
-                        ctx.beginPath();
-                        ctx.moveTo(t.head.x + (f * headRadius * 0.4), t.head.y + headRadius*0.1);
-                        ctx.lineTo(t.head.x + (f * headRadius * 0.2), t.head.y + headRadius*0.8);
-                        ctx.stroke();
-
                         // Chest streak
                         ctx.beginPath();
                         ctx.moveTo(t.neck.x + (f * trapsW * 0.4), t.neck.y + 10*h);
@@ -1973,10 +2155,16 @@ ctx.restore();
             document.getElementById('opp-def').textContent = opp.stats.defense;
             document.getElementById('opp-stam').textContent = opp.stats.maxStamina;
 
-            document.getElementById('my-hp').textContent = playerStats.maxHp;
-            document.getElementById('my-pow').textContent = playerStats.power;
-            document.getElementById('my-def').textContent = playerStats.defense;
-            document.getElementById('my-stam').textContent = playerStats.maxStamina;
+            // Calculate effective stats for UI
+            let effHp = playerStats.maxHp + (playerStats.neckGirth || 0)*2 + (playerStats.chinSize || 0)*2;
+            let effPow = playerStats.power + (playerStats.deltoidSize || 0)*0.5;
+            let effDef = playerStats.defense + (playerStats.forearmSize || 0)*0.5 + (playerStats.chinSize || 0)*0.5;
+            let effStam = playerStats.maxStamina + (playerStats.thighSize || 0)*2;
+
+            document.getElementById('my-hp').textContent = effHp;
+            document.getElementById('my-pow').textContent = Math.floor(effPow);
+            document.getElementById('my-def').textContent = Math.floor(effDef);
+            document.getElementById('my-stam').textContent = effStam;
         }
 
         function updateGymUI() {
@@ -1992,7 +2180,7 @@ ctx.restore();
                     const lNames = ["Joe", "Mike", "Pete", "Dave", "Steve", "Bob", "Ray", "Tyson", "Lee", "Ali", "Crusher", "Reaper", "Maniac", "Fist", "Hawk", "Wolf"];
                     const skins = ['#fcd34d', '#b45309', '#fca5a5', '#cbd5e1', '#111827', '#e2e8f0', '#8b5a2b', '#ffdead'];
                     const hairColors = ['#000000', '#fbbf24', '#dc2626', '#ffffff', '#451a03', '#9ca3af', '#f59e0b'];
-                    const hStyles = ['short', 'bald', 'mohawk', 'afro', 'spiky'];
+                    const hStyles = ['short', 'bald', 'mohawk', 'afro', 'spiky', 'dreadlocks', 'mullet', 'pompadour', 'long'];
                     const randColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
                     const descs = ["A tough challenger.", "Looking for a fight.", "A dangerous striker.", "Known for stamina.", "Has a strong chin.", "Quick on their feet.", "A rising star.", "Hard-hitting brawler.", "Technically sound fighter.", "Wild and unpredictable."];
 
