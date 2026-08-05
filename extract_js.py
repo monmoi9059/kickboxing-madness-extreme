@@ -1,12 +1,9 @@
-import re
+import sys
 
-with open('hairstyles_upgrade.html', 'r') as f:
+with open("hairstyles_upgrade.html", "r") as f:
     content = f.read()
 
-# We need to find the main script block
-match = re.search(r"<script>(.*?)</script>", content, re.DOTALL)
-if match:
-    with open('test.js', 'w') as f:
-        f.write(match.group(1))
-else:
-    print("No script found")
+script = content.split("<script>")[1].split("</script>")[0]
+
+with open("temp.js", "w") as f:
+    f.write(script)
