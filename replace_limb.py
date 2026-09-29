@@ -1,6 +1,6 @@
 import re
 
-with open('hairstyles_upgrade.html', 'r') as f:
+with open('EFLTG.html', 'r') as f:
     content = f.read()
 
 start_sig = "const drawDetailedLimb = (startJoint, endJoint, bendDir, limbLength, width, outlineCol, fillCol, hasTattoo = false) => {"
@@ -150,7 +150,7 @@ new_limb_func = """const drawDetailedLimb = (startJoint, endJoint, bendDir, limb
 
 new_content = content[:start_idx] + new_limb_func + content[end_idx:]
 
-with open('hairstyles_upgrade.html', 'w') as f:
+with open('EFLTG.html', 'w') as f:
     f.write(new_content)
 
 print("Replaced drawDetailedLimb!")

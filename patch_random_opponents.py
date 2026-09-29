@@ -1,6 +1,6 @@
 import re
 
-with open("test.js", "r") as f:
+with open("EFLTG.html", "r") as f:
     content = f.read()
 
 # Make appearances really distinct. Add more variety to sizes.
@@ -23,7 +23,7 @@ new_code = """                    for (let i = 0; i < numChoices; i++) {
 
 if old_code in content:
     content = content.replace(old_code, new_code)
-    with open("test.js", "w") as f:
+    with open("EFLTG.html", "w") as f:
         f.write(content)
     print("Patched random base opponents successfully!")
 else:

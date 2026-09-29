@@ -1,6 +1,6 @@
 import re
 
-with open('hairstyles_upgrade.html', 'r') as f:
+with open('EFLTG.html', 'r') as f:
     content = f.read()
 
 # We want to replace the torso, head, and facial features.
@@ -287,7 +287,7 @@ new_body_code = """// Draw Neck
 
 new_content = content[:start_idx] + new_body_code + content[end_idx:]
 
-with open('hairstyles_upgrade.html', 'w') as f:
+with open('EFLTG.html', 'w') as f:
     f.write(new_content)
 
 print("Replaced body logic!")

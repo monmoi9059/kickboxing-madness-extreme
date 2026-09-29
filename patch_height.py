@@ -1,6 +1,6 @@
 import re
 
-with open('hairstyles_upgrade.html', 'r') as f:
+with open('EFLTG.html', 'r') as f:
     content = f.read()
 
 old_botched = '''                        if (key === 'botchedSurgery') {
@@ -20,5 +20,5 @@ new_botched = '''                        if (key === 'botchedSurgery') {
 
 content = content.replace(old_botched, new_botched)
 
-with open('hairstyles_upgrade.html', 'w') as f:
+with open('EFLTG.html', 'w') as f:
     f.write(content)
