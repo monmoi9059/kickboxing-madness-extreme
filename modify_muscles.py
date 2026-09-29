@@ -1,6 +1,6 @@
 import re
 
-with open('hairstyles_upgrade.html', 'r') as f:
+with open('EFLTG.html', 'r') as f:
     content = f.read()
 
 # Replace muscle mutation math to allow significant scaling based on upgrades
@@ -82,5 +82,5 @@ if torso_start != -1:
     content = content[:shorts_start2] + new_shorts + content[shorts_end2 + len("ctx.fill(); ctx.stroke();"):]
 
 
-with open('hairstyles_upgrade.html', 'w') as f:
+with open('EFLTG.html', 'w') as f:
     f.write(content)

@@ -1,6 +1,6 @@
 import re
 
-with open("hairstyles_upgrade.html", "r") as f:
+with open("EFLTG.html", "r") as f:
     content = f.read()
 
 # We want to replace the inside of the for loop.
@@ -78,7 +78,7 @@ new_code = """                    const numChoices = Math.floor(Math.random() * 
 
 if old_code in content:
     content = content.replace(old_code, new_code)
-    with open("hairstyles_upgrade.html", "w") as f:
+    with open("EFLTG.html", "w") as f:
         f.write(content)
     print("Patched successfully!")
 else:
