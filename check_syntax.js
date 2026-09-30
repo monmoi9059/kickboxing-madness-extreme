@@ -8,10 +8,10 @@ try {
 }
 
 try {
-  const html = require('fs').readFileSync('hairstyles_upgrade.html', 'utf8');
+  const html = require('fs').readFileSync('EFLTG.html', 'utf8');
   const scriptContent = html.match(/<script>([\s\S]*?)<\/script>/)[1];
   new vm.Script(scriptContent);
-  console.log('hairstyles_upgrade.html syntax is valid');
+  console.log('EFLTG.html syntax is valid');
 } catch (e) {
-  console.error('hairstyles_upgrade.html syntax error:', e.message);
+  console.error('EFLTG.html syntax error:', e.message);
 }

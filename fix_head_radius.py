@@ -1,17 +1,17 @@
 import re
 
-with open('hairstyles_upgrade.html', 'r') as f:
+with open('EFLTG.html', 'r') as f:
     content = f.read()
 
-# I removed headRadius in my replacement snippet earlier.
-# Let's add it right before it's first used (neck curve).
-# Find "// Draw Neck"
-
-hr_decl = "const headRadius = 16 * ((h+w)/2);"
-target = "                // Draw Neck\n"
-new_content = content.replace(target, target + "                " + hr_decl + "\n")
-
-with open('hairstyles_upgrade.html', 'w') as f:
-    f.write(new_content)
-
-print("Added headRadius!")
+# I messed up moving headRadius properly!
+# Let's fix headRadius definition in the draw method again.
+neck_start = content.find("// Draw Neck")
+if neck_start != -1:
+    new_code = """// Draw Neck
+                const headRadius = 16 * ((h+w)/2);"""
+    content = content.replace("// Draw Neck", new_code, 1)
+    with open('EFLTG.html', 'w') as f:
+        f.write(content)
+    print("Fixed headRadius!")
+else:
+    print("Could not find insertion point.")
